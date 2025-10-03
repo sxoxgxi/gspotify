@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist gettext-domain="gspotify">
+  <schema id="org.gnome.shell.extensions.gspotify" path="/org/gnome/shell/extensions/gspotify/">
+    <key name="panel-position" type="i">
+      <default>0</default>
+      <range min="0" max="4"/>
+      <summary>Panel position</summary>
+      <description>Where to show the indicator in the panel (0=left, 1=center, 2=right, 3=Far Left, 4=Far Right)</description>
+    </key>
+    <key name="show-info-tip" type="b">
+      <default>true</default>
+      <summary>Show info tip</summary>
+      <description>Show a tip explaining play/pause behavior when the extension is enabled</description>
+    </key>
+  </schema>
+</schemalist>

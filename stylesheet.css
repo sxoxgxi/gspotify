@@ -1,0 +1,47 @@
+.spotify-card {
+  border-radius: 10px;
+}
+
+.spotify-info-box {
+  margin-left: 2px;
+  margin-right: 2px;
+}
+
+.spotify-artwork {
+  border-radius: 10px;
+  background-size: cover;
+}
+
+.spotify-title {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.spotify-button {
+  border-radius: 20px;
+  padding: 10px;
+  background-color: transparent;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.spotify-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.spotify-button:active {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.spotify-info-tip {
+  color: white;
+  background-color: rgba(0, 0, 0, 0.7);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+}
+
+.spotify-info-tip:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
