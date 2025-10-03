@@ -66,7 +66,7 @@ export default class GSpotifyPreferences extends ExtensionPreferences {
       const currentYear = new Date().getFullYear();
       const about = new Adw.AboutWindow({
         application_name: "GSpotify",
-        version: "1.0.0",
+        version: "1",
         developer_name: "sxoxgxi",
         website: "https://github.com/sxoxgxi/gspotify",
         issue_url: "https://github.com/sxoxgxi/gspotify/issues",
