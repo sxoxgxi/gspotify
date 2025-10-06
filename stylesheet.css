@@ -38,10 +38,6 @@
   color: white;
   background-color: rgba(0, 0, 0, 0.7);
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: 10px;
   font-size: 10px;
-}
-
-.spotify-info-tip:hover {
-  background-color: rgba(0, 0, 0, 0.1);
 }

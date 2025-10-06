@@ -5,8 +5,10 @@ import Gio from "gi://Gio";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as PanelMenu from "resource:///org/gnome/shell/ui/panelMenu.js";
 import { Extension } from "resource:///org/gnome/shell/extensions/extension.js";
+
 import { SpotifyDBus } from "./dbus-parser.js";
 import { SpotifyUI } from "./spotui.js";
+import { EXTENSION_CONFIG } from "./constants.js";
 
 const SpotifyIndicator = GObject.registerClass(
   class SpotifyIndicator extends PanelMenu.Button {
@@ -115,10 +117,7 @@ export default class SpotifyExtension extends Extension {
     const GioSSS = Gio.SettingsSchemaSource;
 
     let schemaSource = GioSSS.get_default();
-    let schema = schemaSource.lookup(
-      "org.gnome.shell.extensions.gspotify",
-      true,
-    );
+    let schema = schemaSource.lookup(EXTENSION_CONFIG.schema, true);
 
     if (!schema) {
       const schemaDir = this.dir.get_child("schemas");
@@ -127,7 +126,7 @@ export default class SpotifyExtension extends Extension {
         GioSSS.get_default(),
         false,
       );
-      schema = schemaSource.lookup("org.gnome.shell.extensions.gspotify", true);
+      schema = schemaSource.lookup(EXTENSION_CONFIG.schema, true);
     }
 
     return new Gio.Settings({ settings_schema: schema });

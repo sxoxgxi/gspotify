@@ -3,6 +3,10 @@ import Clutter from "gi://Clutter";
 import Gio from "gi://Gio";
 import GLib from "gi://GLib";
 import GdkPixbuf from "gi://GdkPixbuf";
+import * as Main from "resource:///org/gnome/shell/ui/main.js";
+import * as MessageTray from "resource:///org/gnome/shell/ui/messageTray.js";
+
+import { EXTENSION_CONFIG, INFO_TIPS } from "./constants.js";
 
 export class SpotifyUI {
   constructor(indicator, extension, onColorUpdate = null) {
@@ -18,6 +22,7 @@ export class SpotifyUI {
     this._lastUpdateTime = null;
     this._currentPosition = 0;
     this._duration = 0;
+    this._notificationSource = null;
 
     this._buildUI();
   }
@@ -87,21 +92,34 @@ export class SpotifyUI {
   }
 
   _buildInfoTip() {
-    this._infoTip = new St.Label({
-      text: "Click on the album art to play/pause - click to dismiss",
-      x_align: Clutter.ActorAlign.CENTER,
-      y_align: Clutter.ActorAlign.CENTER,
-      style_class: "spotify-info-tip",
+    this._infoTipBox = new St.BoxLayout({
       reactive: true,
       track_hover: true,
+      vertical: true,
     });
 
-    this._infoTip.set_style("margin-top: 8px");
+    INFO_TIPS.forEach((tip, index) => {
+      const tipLabel = new St.Label({
+        text: `✗ ${tip}`,
+        style_class: "spotify-info-tip",
+        reactive: true,
+      });
 
-    this.container.add_child(this._infoTip);
-    this._infoTip.connect("button-press-event", () => {
-      this._infoTip.destroy();
+      if (index !== INFO_TIPS.length - 1) {
+        tipLabel.set_style("margin-bottom: 2px");
+      }
+
+      tipLabel.connect("button-press-event", () => {
+        this._infoTipBox.remove_child(tipLabel);
+        if (this._infoTipBox.get_n_children() === 0) {
+          this._infoTipBox.destroy();
+        }
+      });
+      this._infoTipBox.add_child(tipLabel);
     });
+
+    this._infoTipBox.set_style("margin-top: 8px");
+    this.container.add_child(this._infoTipBox);
   }
 
   _buildPrevButton() {
@@ -123,6 +141,8 @@ export class SpotifyUI {
       x_expand: true,
       x_align: Clutter.ActorAlign.CENTER,
       y_align: Clutter.ActorAlign.CENTER,
+      reactive: true,
+      track_hover: true,
     });
 
     this._titleLabel = new St.Label({
@@ -167,6 +187,13 @@ export class SpotifyUI {
     this._progressBarContainer.add_child(this._progressFilled);
 
     this._infoBox.add_child(this._progressBarContainer);
+  }
+
+  _buildAdditionalControls() {
+    this._additionalControls = new St.BoxLayout({
+      style_class: "spotify-additional-controls",
+    });
+    this._infoBox.add_child(this._additionalControls);
   }
 
   _onPlayPause() {
@@ -219,6 +246,21 @@ export class SpotifyUI {
     this._updateProgress(metadata);
     this._updatePlayState(metadata);
     this._updateArtwork(metadata);
+    this._infoBox.connect("button-press-event", () => {
+      if (metadata.url) {
+        const clipboard = St.Clipboard.get_default();
+        clipboard.set_text(St.ClipboardType.CLIPBOARD, metadata.url);
+        this._showNotification(
+          EXTENSION_CONFIG.name,
+          "Copied track URL to clipboard!",
+        );
+      } else {
+        this._showNotification(
+          EXTENSION_CONFIG.name,
+          "No URL found for current track",
+        );
+      }
+    });
   }
 
   _updateText(metadata) {
@@ -487,7 +529,33 @@ export class SpotifyUI {
     return lum(bgColor) < 0.5 ? "#FFFFFF" : "#000000";
   }
 
+  _ensureNotificationSource() {
+    if (!this._notificationSource) {
+      this._notificationSource = new MessageTray.Source({
+        title: EXTENSION_CONFIG.name,
+        iconName: "media-playback-start-symbolic",
+      });
+      Main.messageTray.add(this._notificationSource);
+    }
+    return this._notificationSource;
+  }
+
+  _showNotification(title, message) {
+    const source = this._ensureNotificationSource();
+    const notification = new MessageTray.Notification({
+      source: source,
+      title: title,
+      body: message,
+      isTransient: true,
+    });
+    source.addNotification(notification);
+  }
+
   destroy() {
     this._stopProgressUpdate();
+    if (this._notificationSource) {
+      this._notificationSource.destroy();
+      this._notificationSource = null;
+    }
   }
 }
