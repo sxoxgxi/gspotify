@@ -49,7 +49,7 @@ export class SpotifyDBus {
         this.panelButton.updateLabel({ position_ms: position / 1000 });
       });
     } catch (e) {
-      logError(e, "Failed to create DBus proxy");
+      console.warn("Failed to create DBus proxy");
       this.proxy = null;
     }
   }
@@ -91,13 +91,13 @@ export class SpotifyDBus {
           if (positionValue.is_of_type(GLib.VariantType.new("x"))) {
             position_ms = positionValue.get_int64() / 1000;
           } else {
-            log(
+            console.warn(
               "Unexpected inner variant type for Position:",
               positionValue.get_type_string(),
             );
           }
         } else {
-          log(
+          console.warn(
             "Unexpected outer variant type for Position:",
             innerVariant.get_type_string(),
           );
@@ -107,11 +107,11 @@ export class SpotifyDBus {
           ? metadata["mpris:length"].unpack() / 1000
           : 0;
         if (position_ms < 0 || (duration_ms > 0 && position_ms > duration_ms)) {
-          log("Invalid position value, setting to 0");
+          console.warn("Invalid position value, setting to 0");
           position_ms = 0;
         }
       } catch (e) {
-        logError(e, "Failed to fetch Position via Properties.Get");
+        console.warn(e, "Failed to fetch Position via Properties.Get");
       }
 
       return {
@@ -150,7 +150,7 @@ export class SpotifyDBus {
 
   control(action) {
     if (!this.proxy) {
-      logError(new Error("DBus proxy not available"), "Control action failed");
+      console.warn("DBus proxy not available for control action");
       return;
     }
 
@@ -178,12 +178,12 @@ export class SpotifyDBus {
           );
           break;
         default:
-          log(`Unknown control action: ${action}`);
+          console.warn(`Unknown control action: ${action}`);
           return;
       }
       this.panelButton.updateLabel();
     } catch (e) {
-      logError(e, `Failed to execute control action: ${action}`);
+      console.warn(`Failed to execute control action: ${action}`);
     }
   }
 
@@ -194,7 +194,7 @@ export class SpotifyDBus {
     try {
       return this.proxy.Shuffle;
     } catch (e) {
-      logError(e, "Failed to get Shuffle state");
+      console.warn("Failed to get Shuffle state");
       return false;
     }
   }
@@ -217,10 +217,9 @@ export class SpotifyDBus {
         -1,
         null,
       );
-      log(`Shuffle set to ${newValue}`);
       this.panelButton.updateLabel();
     } catch (e) {
-      logError(e, "Failed to toggle Shuffle");
+      console.warn("Failed to toggle Shuffle");
     }
   }
 }

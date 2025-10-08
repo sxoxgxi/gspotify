@@ -1,10 +1,10 @@
 {
   "uuid": "gspotify@sogi.is-a.dev",
   "name": "GSpotify",
-  "description": "GNOME Spotify - A clean and integrated Spotify controller for GNOME Shell. Uses system clipboard for menu actions.",
+  "description": "GNOME Spotify - A label and integrated Spotify controller for GNOME Shell. Uses system clipboard for menu actions. This extension is not affiliated, funded, or in any way associated with Spotify",
   "shell-version": ["47", "48", "49"],
   "url": "https://github.com/sxoxgxi/gspotify",
   "settings-schema": "org.gnome.shell.extensions.gspotify",
   "gettext-domain": "gspotify",
-  "version": 1.2
+  "version": 3
 }

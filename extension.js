@@ -8,8 +8,6 @@ import { Extension } from "resource:///org/gnome/shell/extensions/extension.js";
 
 import { SpotifyDBus } from "./dbus-parser.js";
 import { SpotifyUI } from "./spotui.js";
-// import { SpotifyUI } from "./mockui.js";
-import { EXTENSION_CONFIG } from "./constants.js";
 
 const SpotifyIndicator = GObject.registerClass(
   class SpotifyIndicator extends PanelMenu.Button {
@@ -72,9 +70,8 @@ export default class SpotifyExtension extends Extension {
   enable() {
     this._indicator = null;
     this._watcherId = null;
-    this._settings = null;
 
-    this._settings = this._getSettings();
+    this._settings = this.getSettings();
 
     this._settingsHandlerId = this._settings.connect(
       "changed::panel-position",
@@ -109,28 +106,8 @@ export default class SpotifyExtension extends Extension {
     }
 
     if (this._settings) {
-      this._settings.run_dispose();
       this._settings = null;
     }
-  }
-
-  _getSettings() {
-    const GioSSS = Gio.SettingsSchemaSource;
-
-    let schemaSource = GioSSS.get_default();
-    let schema = schemaSource.lookup(EXTENSION_CONFIG.schema, true);
-
-    if (!schema) {
-      const schemaDir = this.dir.get_child("schemas");
-      schemaSource = GioSSS.new_from_directory(
-        schemaDir.get_path(),
-        GioSSS.get_default(),
-        false,
-      );
-      schema = schemaSource.lookup(EXTENSION_CONFIG.schema, true);
-    }
-
-    return new Gio.Settings({ settings_schema: schema });
   }
 
   _getPanelPosition() {
@@ -191,14 +168,14 @@ export default class SpotifyExtension extends Extension {
 
   _onSpotifyAppeared() {
     if (!this._indicator) {
-      log("Spotify appeared on DBus");
+      console.info("Spotify appeared on DBus");
       this._createIndicator();
     }
   }
 
   _onSpotifyVanished() {
     if (this._indicator) {
-      log("Spotify vanished from DBus");
+      console.info("Spotify vanished from DBus");
       this._indicator.destroy();
       this._indicator = null;
     }
@@ -212,7 +189,7 @@ export default class SpotifyExtension extends Extension {
       }
       this._indicator._dbus.control(action);
     } else {
-      log("Spotify indicator not found");
+      console.warn("Spotify indicator not found");
     }
   }
 

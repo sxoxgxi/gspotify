@@ -4,18 +4,16 @@ import Gtk from "gi://Gtk";
 
 import { ExtensionPreferences } from "resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js";
 
-import { EXTENSION_CONFIG } from "./constants.js";
-
 export default class GSpotifyPreferences extends ExtensionPreferences {
   fillPreferencesWindow(window) {
-    const settings = this.getSettings(EXTENSION_CONFIG.schema);
+    const settings = this.getSettings();
 
     const page = new Adw.PreferencesPage();
     window.add(page);
 
     const group = new Adw.PreferencesGroup({
-      title: `${EXTENSION_CONFIG.name} settings`,
-      description: `Configure the ${EXTENSION_CONFIG.name} extension`,
+      title: `${this.metadata.name} settings`,
+      description: `Configure the ${this.metadata.name} extension`,
     });
     page.add(group);
 
@@ -73,7 +71,7 @@ export default class GSpotifyPreferences extends ExtensionPreferences {
     page.add(aboutGroup);
 
     const aboutRow = new Adw.ActionRow({
-      title: `About ${EXTENSION_CONFIG.name}`,
+      title: `About ${this.metadata.name}`,
       subtitle: "Learn more about this extension",
       activatable: true,
     });
@@ -81,14 +79,14 @@ export default class GSpotifyPreferences extends ExtensionPreferences {
     aboutRow.connect("activated", () => {
       const currentYear = new Date().getFullYear();
       const about = new Adw.AboutWindow({
-        application_name: EXTENSION_CONFIG.name,
-        version: `${EXTENSION_CONFIG.version}`,
-        developer_name: EXTENSION_CONFIG.author,
-        website: EXTENSION_CONFIG.url,
-        issue_url: `${EXTENSION_CONFIG.url}/issues`,
+        application_name: this.metadata.name,
+        version: `${this.metadata.version}`,
+        developer_name: "sxoxgxi",
+        website: this.metadata.url,
+        issue_url: `${this.metadata.url}/issues`,
         license_type: Gtk.License.MIT_X11,
         copyright: `© ${currentYear} Sogi`,
-        comments: EXTENSION_CONFIG.description,
+        comments: this.metadata.description,
       });
 
       about.present(window);

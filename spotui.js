@@ -6,7 +6,7 @@ import GdkPixbuf from "gi://GdkPixbuf";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as MessageTray from "resource:///org/gnome/shell/ui/messageTray.js";
 
-import { EXTENSION_CONFIG, INFO_TIPS } from "./constants.js";
+import { INFO_TIPS } from "./constants.js";
 
 export class SpotifyUI {
   constructor(indicator, extension, onColorUpdate = null) {
@@ -288,8 +288,6 @@ export class SpotifyUI {
   _control(action) {
     if (this._extension?.control) {
       this._extension.control(action);
-    } else {
-      log(`${action} requested`);
     }
   }
 
@@ -414,7 +412,7 @@ export class SpotifyUI {
         this._loadArtworkFromUrl(url);
       }
     } catch (e) {
-      logError(e, "Failed to load artwork");
+      console.warn("Failed to load artwork");
       this._setFallbackArtwork();
     }
   }
@@ -427,7 +425,7 @@ export class SpotifyUI {
         if (!success) throw new Error("Failed to load file");
         this._setArtworkFromBytes(bytes);
       } catch (e) {
-        logError(e, "Failed to load local artwork");
+        console.warn("Failed to load local artwork");
         this._setFallbackArtwork();
       }
     });
@@ -441,7 +439,7 @@ export class SpotifyUI {
         if (!success) throw new Error("Failed to load contents from URL");
         this._setArtworkFromBytes(bytes);
       } catch (e) {
-        logError(e, "Failed to load artwork from URL");
+        console.warn("Failed to load artwork from URL");
         this._setFallbackArtwork();
       }
     });
@@ -476,7 +474,7 @@ export class SpotifyUI {
         }
       }
     } catch (e) {
-      logError(e, "Failed to set artwork from bytes");
+      console.warn("Failed to set artwork from bytes");
       this._setFallbackArtwork();
     }
   }
@@ -537,7 +535,7 @@ export class SpotifyUI {
         };
       }
     } catch (e) {
-      logError(e, "Failed to get color palette");
+      console.warn("Failed to get color palette");
     }
     return null;
   }
@@ -595,7 +593,7 @@ export class SpotifyUI {
   _ensureNotificationSource() {
     if (!this._notificationSource) {
       this._notificationSource = new MessageTray.Source({
-        title: EXTENSION_CONFIG.name,
+        title: "GSpotify",
         iconName: "media-playback-start-symbolic",
       });
       Main.messageTray.add(this._notificationSource);
