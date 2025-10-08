@@ -33,6 +33,10 @@ It is designed to be theme-aware, and customizable\*
 
 ## 📦 Installation
 
+### From Extensions Website
+
+This extension is available on [GNOME Extensions Website](https://extensions.gnome.org/extension/8659/gspotify/).
+
 ### From Source
 
 1. Clone the repo into your local extensions directory:
