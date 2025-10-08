@@ -8,6 +8,7 @@ import { Extension } from "resource:///org/gnome/shell/extensions/extension.js";
 
 import { SpotifyDBus } from "./dbus-parser.js";
 import { SpotifyUI } from "./spotui.js";
+// import { SpotifyUI } from "./mockui.js";
 import { EXTENSION_CONFIG } from "./constants.js";
 
 const SpotifyIndicator = GObject.registerClass(
@@ -205,9 +206,20 @@ export default class SpotifyExtension extends Extension {
 
   control(action) {
     if (this._indicator && this._indicator._dbus) {
+      if (action === "shuffle") {
+        this._indicator._dbus.toggleShuffle();
+        return;
+      }
       this._indicator._dbus.control(action);
     } else {
       log("Spotify indicator not found");
     }
+  }
+
+  getShuffle() {
+    if (this._indicator && this._indicator._dbus) {
+      return this._indicator._dbus.getShuffle();
+    }
+    return false;
   }
 }

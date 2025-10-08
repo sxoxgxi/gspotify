@@ -6,6 +6,7 @@ const spotifyDbus = `<node>
     <property name="PlaybackStatus" type="s" access="read"/>
     <property name="Metadata" type="a{sv}" access="read"/>
     <property name="Position" type="x" access="read"/>
+    <property name="Shuffle" type="b" access="readwrite"/>
     <method name="PlayPause"/>
     <method name="Next"/>
     <method name="Previous"/>
@@ -183,6 +184,43 @@ export class SpotifyDBus {
       this.panelButton.updateLabel();
     } catch (e) {
       logError(e, `Failed to execute control action: ${action}`);
+    }
+  }
+
+  getShuffle() {
+    if (!this.proxy) {
+      return;
+    }
+    try {
+      return this.proxy.Shuffle;
+    } catch (e) {
+      logError(e, "Failed to get Shuffle state");
+      return false;
+    }
+  }
+
+  toggleShuffle() {
+    if (!this.proxy) {
+      return;
+    }
+    try {
+      const current = this.getShuffle();
+      const newValue = !current;
+      this.proxy.call_sync(
+        "org.freedesktop.DBus.Properties.Set",
+        new GLib.Variant("(ssv)", [
+          "org.mpris.MediaPlayer2.Player",
+          "Shuffle",
+          new GLib.Variant("b", newValue),
+        ]),
+        Gio.DBusCallFlags.NONE,
+        -1,
+        null,
+      );
+      log(`Shuffle set to ${newValue}`);
+      this.panelButton.updateLabel();
+    } catch (e) {
+      logError(e, "Failed to toggle Shuffle");
     }
   }
 }

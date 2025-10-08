@@ -23,6 +23,7 @@ export class SpotifyUI {
     this._currentPosition = 0;
     this._duration = 0;
     this._notificationSource = null;
+    this._shuffleState = false;
 
     this._buildUI();
   }
@@ -37,6 +38,15 @@ export class SpotifyUI {
 
     this._buildHeader();
     this._buildProgressBar();
+
+    this._separator = new St.Widget({
+      style_class: "spotify-separator",
+      x_expand: true,
+      y_expand: false,
+    });
+    this.container.add_child(this._separator);
+
+    this._buildAdditionalControls();
     if (this._settings.get_boolean("show-info-tip")) {
       this._buildInfoTip();
     }
@@ -52,6 +62,7 @@ export class SpotifyUI {
 
     this._buildArtworkSection();
     this._buildPrevButton();
+
     this._buildInfoSection();
     this._buildNextButton();
 
@@ -192,8 +203,51 @@ export class SpotifyUI {
   _buildAdditionalControls() {
     this._additionalControls = new St.BoxLayout({
       style_class: "spotify-additional-controls",
+      vertical: false,
+      x_align: Clutter.ActorAlign.FILL,
     });
-    this._infoBox.add_child(this._additionalControls);
+
+    this.container.add_child(this._additionalControls);
+
+    this._buildShuffleButton();
+
+    this._statusLabel = new St.Label({
+      text: "",
+      style_class: "spotify-status-label",
+      x_align: Clutter.ActorAlign.CENTER,
+      y_align: Clutter.ActorAlign.CENTER,
+      x_expand: true,
+    });
+    this._additionalControls.add_child(this._statusLabel);
+
+    this._buildSettingsButton();
+  }
+
+  _buildShuffleButton() {
+    this._shuffleButton = new St.Button({
+      style_class: "spotify-button-secondary",
+      child: new St.Icon({
+        icon_name: "media-playlist-shuffle-symbolic",
+        icon_size: 16,
+      }),
+    });
+    this._shuffleButton.connect("clicked", () => this._control("shuffle"));
+    this._additionalControls.add_child(this._shuffleButton);
+  }
+
+  _buildSettingsButton() {
+    this._settingsButton = new St.Button({
+      style_class: "spotify-button-secondary",
+      child: new St.Icon({
+        icon_name: "preferences-system-symbolic",
+        icon_size: 16,
+      }),
+    });
+    this._additionalControls.add_child(this._settingsButton);
+
+    this._settingsButton.connect("clicked", () => {
+      this._extension.openPreferences();
+    });
   }
 
   _onPlayPause() {
@@ -246,19 +300,22 @@ export class SpotifyUI {
     this._updateProgress(metadata);
     this._updatePlayState(metadata);
     this._updateArtwork(metadata);
+
     this._infoBox.connect("button-press-event", () => {
       if (metadata.url) {
         const clipboard = St.Clipboard.get_default();
         clipboard.set_text(St.ClipboardType.CLIPBOARD, metadata.url);
-        this._showNotification(
-          EXTENSION_CONFIG.name,
-          "Copied track URL to clipboard!",
-        );
+        this._statusLabel.text = "Copied Track URL!";
+        GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1500, () => {
+          this._statusLabel.text = "";
+          return GLib.SOURCE_REMOVE;
+        });
       } else {
-        this._showNotification(
-          EXTENSION_CONFIG.name,
-          "No URL found for current track",
-        );
+        this._statusLabel.text = "Copying Failed!";
+        GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1500, () => {
+          this._statusLabel.text = "";
+          return GLib.SOURCE_REMOVE;
+        });
       }
     });
   }
@@ -513,10 +570,14 @@ export class SpotifyUI {
     this._progressBarContainer.style += ` background-color: ${themeCssColor};`;
 
     this._readableTextColor = readableTextColor;
+
     this._prevButton.style = `color: ${readableTextColor};`;
     this._nextButton.style = `color: ${readableTextColor};`;
+    this._shuffleButton.style = `color: ${readableTextColor};`;
+    this._settingsButton.style = `color: ${readableTextColor};`;
     this._titleLabel.style = `color: ${readableTextColor};`;
     this._artistLabel.style = `color: ${readableTextColor};`;
+    this._statusLabel.style = `color: ${readableTextColor};`;
     this._overlayIcon.style = `color: ${readableTextColor};`;
 
     if (this._onColorUpdate) {

@@ -24,7 +24,7 @@ It is designed to be theme-aware, and customizable\*
 
 ## 🚧 Todo
 
-- [ ] Shuffle and repeat buttons if available.
+- [x] Shuffle and repeat buttons if available.
 - [ ] Add support for track downloading.
 - [ ] Synced and Plain Lyrics.
 

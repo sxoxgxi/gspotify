@@ -34,10 +34,38 @@
   background-color: rgba(255, 255, 255, 0.2);
 }
 
+.spotify-button-secondary {
+  border-radius: 20px;
+  padding: 10px;
+
+  background-color: rgba(255, 255, 255, 0.1);
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.spotify-button-secondary:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.spotify-button-secondary:active {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
 .spotify-info-tip {
   color: white;
   background-color: rgba(0, 0, 0, 0.7);
   padding: 2px 6px;
   border-radius: 10px;
   font-size: 10px;
+}
+.spotify-additional-controls {
+  margin-top: 8px;
+  spacing: 8px;
+}
+
+.spotify-separator {
+  background-color: rgba(255, 255, 255, 0.1);
+  height: 1px;
+  margin-top: 8px;
 }
