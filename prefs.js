@@ -44,7 +44,7 @@ export default class GSpotifyPreferences extends ExtensionPreferences {
     const showInfoTipRow = new Adw.SwitchRow({
       title: "Show Info Tip",
       subtitle:
-        "Show a tip explaining play/pause behavior when the extension is enabled",
+        "Show a tip explaining different control behavior when the extension is enabled",
     });
     settings.bind(
       "show-info-tip",
@@ -54,6 +54,20 @@ export default class GSpotifyPreferences extends ExtensionPreferences {
     );
 
     group.add(showInfoTipRow);
+
+    const useArtworkColorsRow = new Adw.SwitchRow({
+      title: "Use Artwork Colors",
+      subtitle:
+        "If enabled, the extension dynamically changes UI colors based on the dominant colors of the current track's album artwork",
+    });
+    settings.bind(
+      "artwork-themed-ui",
+      useArtworkColorsRow,
+      "active",
+      Gio.SettingsBindFlags.DEFAULT,
+    );
+
+    group.add(useArtworkColorsRow);
 
     const aboutGroup = new Adw.PreferencesGroup();
     page.add(aboutGroup);

@@ -464,14 +464,16 @@ export class SpotifyUI {
       const fileUri = file.get_uri();
       this._artwork.style = `background-image: url("${fileUri}");`;
 
-      const colorData = this._getColorPaletteFromBytes(bytes);
-      if (colorData) {
-        this._currentColors = colorData;
-        this._applyArtworkColor(
-          colorData.main,
-          colorData.accent,
-          colorData.theme,
-        );
+      if (this._settings.get_boolean("artwork-themed-ui")) {
+        const colorData = this._getColorPaletteFromBytes(bytes);
+        if (colorData) {
+          this._currentColors = colorData;
+          this._applyArtworkColor(
+            colorData.main,
+            colorData.accent,
+            colorData.theme,
+          );
+        }
       }
     } catch (e) {
       logError(e, "Failed to set artwork from bytes");

@@ -7,7 +7,7 @@ export const INFO_TIPS = [
 export const EXTENSION_CONFIG = {
   name: "GSpotify",
   author: "sxoxgxi",
-  version: 1.1,
+  version: 1.2,
   url: "https://github.com/sxoxgxi/gspotify",
   description:
     "GNOME Spotify - A clean and integrated Spotify controller for GNOME Shell. Uses system clipboard for menu actions.",
