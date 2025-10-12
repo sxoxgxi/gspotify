@@ -1,6 +1,7 @@
 import GObject from "gi://GObject";
 import St from "gi://St";
 import Clutter from "gi://Clutter";
+import GLib from "gi://GLib";
 import Gio from "gi://Gio";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as PanelMenu from "resource:///org/gnome/shell/ui/panelMenu.js";
@@ -8,6 +9,8 @@ import { Extension } from "resource:///org/gnome/shell/extensions/extension.js";
 
 import { SpotifyDBus } from "./dbus-parser.js";
 import { SpotifyUI } from "./spotui.js";
+import { SpotDLExecutor } from "./spotdl.js";
+import { getStatusSymbol } from "./utils.js";
 
 const SpotifyIndicator = GObject.registerClass(
   class SpotifyIndicator extends PanelMenu.Button {
@@ -20,6 +23,8 @@ const SpotifyIndicator = GObject.registerClass(
       this._ui = new SpotifyUI(this, extension, (dominantColor) => {
         this._onColorUpdate(dominantColor);
       });
+
+      this._spotdl = new SpotDLExecutor();
 
       this._label = new St.Label({
         text: "Spotify",
@@ -61,6 +66,7 @@ const SpotifyIndicator = GObject.registerClass(
       this._dbus = null;
       this._ui.destroy();
       this._ui = null;
+      this._spotdl.destroy();
       super.destroy();
     }
   },
@@ -198,5 +204,53 @@ export default class SpotifyExtension extends Extension {
       return this._indicator._dbus.getShuffle();
     }
     return false;
+  }
+
+  downloadTrack() {
+    const metadata = this._indicator._dbus.getMetadata();
+    const displayText =
+      metadata.title.length > 40
+        ? metadata.title.substring(0, 37) + "..."
+        : metadata.title;
+    this._indicator._label.text = `${displayText} ⦿`;
+    this._indicator._spotdl.checkSpotDLInstalled((installed) => {
+      if (!installed) {
+        console.log("SpotDL is not installed");
+        this._indicator._label.text = `${displayText} ✕`;
+        return;
+      }
+    });
+
+    const rawFolder = this._settings.get_string("download-folder");
+    let output_folder;
+
+    if (GLib.path_is_absolute(rawFolder)) {
+      output_folder = rawFolder;
+    } else if (rawFolder.startsWith("~/")) {
+      output_folder = GLib.build_filenamev([
+        GLib.get_home_dir(),
+        rawFolder.slice(2),
+      ]);
+    } else {
+      output_folder = GLib.build_filenamev([GLib.get_home_dir(), rawFolder]);
+    }
+
+    this._indicator._spotdl.downloadSong(
+      {
+        url: metadata.url,
+        output: output_folder,
+      },
+      (output) => {
+        this._indicator._label.text = `${displayText} ${getStatusSymbol(output.message)}`;
+      },
+      (result) => {
+        if (result.success) {
+          this._indicator._label.text = `${displayText} ✓`;
+        } else {
+          console.warn(`Download failed: ${result.error || result.exitCode}`);
+          this._indicator._label.text = `${displayText} ✕`;
+        }
+      },
+    );
   }
 }

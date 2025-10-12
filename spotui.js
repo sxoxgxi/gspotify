@@ -48,6 +48,12 @@ export class SpotifyUI {
 
     this._buildAdditionalControls();
     if (this._settings.get_boolean("show-info-tip")) {
+      this._tipSeparator = new St.Widget({
+        style_class: "spotify-separator",
+        x_expand: true,
+        y_expand: false,
+      });
+      this.container.add_child(this._tipSeparator);
       this._buildInfoTip();
     }
   }
@@ -221,6 +227,7 @@ export class SpotifyUI {
     this._additionalControls.add_child(this._statusLabel);
 
     this._buildSettingsButton();
+    this._buildDownloadButton();
   }
 
   _buildShuffleButton() {
@@ -243,11 +250,28 @@ export class SpotifyUI {
         icon_size: 16,
       }),
     });
-    this._additionalControls.add_child(this._settingsButton);
 
     this._settingsButton.connect("clicked", () => {
       this._extension.openPreferences();
     });
+
+    this._additionalControls.add_child(this._settingsButton);
+  }
+
+  _buildDownloadButton() {
+    this._downloadButton = new St.Button({
+      style_class: "spotify-button-secondary",
+      child: new St.Icon({
+        gicon: Gio.icon_new_for_string(
+          `${this._extension.path}/icons/download.svg`,
+        ),
+        icon_size: 18,
+      }),
+    });
+    this._downloadButton.connect("clicked", () => {
+      this._extension.downloadTrack();
+    });
+    this._additionalControls.add_child(this._downloadButton);
   }
 
   _onPlayPause() {
@@ -319,8 +343,16 @@ export class SpotifyUI {
   }
 
   _updateText(metadata) {
-    this._titleLabel.text = metadata.title || "Unknown Title";
-    this._artistLabel.text = metadata.artist || "Unknown Artist";
+    if (!metadata.title) {
+      this._titleLabel.text = "Spotify";
+      this._artistLabel.text = "Unknown Artist";
+      return;
+    }
+    this._titleLabel.text =
+      metadata.title.length > 40
+        ? metadata.title.substring(0, 37) + "..."
+        : metadata.title;
+    this._artistLabel.text = metadata.artist;
   }
 
   _updateProgress(metadata) {
@@ -575,6 +607,7 @@ export class SpotifyUI {
     this._nextButton.style = `color: ${readableTextColor};`;
     this._shuffleButton.style = `color: ${readableTextColor};`;
     this._settingsButton.style = `color: ${readableTextColor};`;
+    this._downloadButton.style = `color: ${readableTextColor};`;
     this._titleLabel.style = `color: ${readableTextColor};`;
     this._artistLabel.style = `color: ${readableTextColor};`;
     this._statusLabel.style = `color: ${readableTextColor};`;
@@ -590,6 +623,7 @@ export class SpotifyUI {
     return lum(bgColor) < 0.5 ? "#FFFFFF" : "#000000";
   }
 
+  // For Future Use
   _ensureNotificationSource() {
     if (!this._notificationSource) {
       this._notificationSource = new MessageTray.Source({

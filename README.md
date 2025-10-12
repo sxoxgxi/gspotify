@@ -25,7 +25,7 @@ It is designed to be theme-aware, and customizable\*
 ## 🚧 Todo
 
 - [x] Shuffle and repeat buttons if available.
-- [ ] Add support for track downloading.
+- [x] Add support for track downloading.
 - [ ] Synced and Plain Lyrics.
 - [ ] Remove unnecessary logging.
 

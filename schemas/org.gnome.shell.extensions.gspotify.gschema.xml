@@ -1,17 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist gettext-domain="gspotify">
   <schema id="org.gnome.shell.extensions.gspotify" path="/org/gnome/shell/extensions/gspotify/">
+    
     <key name="panel-position" type="i">
       <default>0</default>
       <range min="0" max="4"/>
       <summary>Panel position</summary>
       <description>Where to show the indicator in the panel (0=left, 1=center, 2=right, 3=Far Left, 4=Far Right)</description>
     </key>
+      
     <key name="show-info-tip" type="b">
       <default>true</default>
       <summary>Show info tip</summary>
       <description>Show a tip explaining different control behavior when the extension is enabled</description>
     </key>
+      
     <key name="artwork-themed-ui" type="b">
       <default>true</default>
       <summary>Use artwork colors for UI theme</summary>
@@ -20,5 +23,14 @@
       the dominant colors of the current track's album artwork
       </description>
     </key>
+      
+    <key name="download-folder" type="s">
+      <default>"~/GSpotifyDownloads"</default>
+      <summary>Download folder path</summary>
+      <description>
+      The directory where downloaded songs will be saved. You can set an absolute path or use ~ for the home directory.
+      </description>
+    </key>
+      
   </schema>
 </schemalist>
