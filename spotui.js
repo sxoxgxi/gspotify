@@ -263,9 +263,9 @@ export class SpotifyUI {
       style_class: "spotify-button-secondary",
       child: new St.Icon({
         gicon: Gio.icon_new_for_string(
-          `${this._extension.path}/icons/download.svg`,
+          `${this._extension.path}/icons/download-symbolic.svg`,
         ),
-        icon_size: 18,
+        icon_size: 16,
       }),
     });
     this._downloadButton.connect("clicked", () => {
