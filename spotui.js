@@ -226,8 +226,8 @@ export class SpotifyUI {
     });
     this._additionalControls.add_child(this._statusLabel);
 
-    this._buildSettingsButton();
     this._buildDownloadButton();
+    this._buildSettingsButton();
   }
 
   _buildShuffleButton() {

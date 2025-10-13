@@ -1,5 +1,5 @@
 export function getStatusSymbol(outputText) {
-  if (!outputText || typeof outputText !== "string") return "⌛";
+  if (!outputText || typeof outputText !== "string") return "⁉";
 
   const lower = outputText.toLowerCase();
 
@@ -12,7 +12,7 @@ export function getStatusSymbol(outputText) {
   }
 
   if (lower.includes("embedding metadata")) {
-    return "🪶";
+    return "✦";
   }
 
   if (
