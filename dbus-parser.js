@@ -131,6 +131,7 @@ export class SpotifyDBus {
         isPlaying: this.proxy.PlaybackStatus
           ? this.proxy.PlaybackStatus === "Playing"
           : false,
+        shuffle: this.getShuffle(),
         success: true,
       };
     } catch (e) {
@@ -218,6 +219,7 @@ export class SpotifyDBus {
         null,
       );
       this.panelButton.updateLabel();
+      return newValue;
     } catch (e) {
       console.warn("Failed to toggle Shuffle");
     }

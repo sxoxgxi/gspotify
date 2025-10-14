@@ -189,21 +189,10 @@ export default class SpotifyExtension extends Extension {
 
   control(action) {
     if (this._indicator && this._indicator._dbus) {
-      if (action === "shuffle") {
-        this._indicator._dbus.toggleShuffle();
-        return;
-      }
       this._indicator._dbus.control(action);
     } else {
       console.warn("Spotify indicator not found");
     }
-  }
-
-  getShuffle() {
-    if (this._indicator && this._indicator._dbus) {
-      return this._indicator._dbus.getShuffle();
-    }
-    return false;
   }
 
   downloadTrack() {

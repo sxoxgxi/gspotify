@@ -239,7 +239,8 @@ export class SpotifyUI {
         icon_size: 16,
       }),
     });
-    this._shuffleButton.connect("clicked", () => this._control("shuffle"));
+
+    this._shuffleButton.connect("clicked", () => this._updateShuffleState());
     this._additionalControls.add_child(this._shuffleButton);
   }
 
@@ -323,6 +324,8 @@ export class SpotifyUI {
     this._updateProgress(metadata);
     this._updatePlayState(metadata);
     this._updateArtwork(metadata);
+    this._shuffleState = metadata.shuffle;
+    this._updateShuffleButton();
 
     this._infoBox.connect("button-press-event", () => {
       this._stopStatusUpdate();
@@ -352,6 +355,20 @@ export class SpotifyUI {
         );
       }
     });
+  }
+
+  _updateShuffleState() {
+    this._shuffleState = this._indicator._dbus.toggleShuffle();
+
+    this._updateShuffleButton();
+  }
+
+  _updateShuffleButton() {
+    if (this._shuffleState) {
+      this._shuffleButton.add_style_pseudo_class("active");
+    } else {
+      this._shuffleButton.remove_style_pseudo_class("active");
+    }
   }
 
   _updateText(metadata) {
