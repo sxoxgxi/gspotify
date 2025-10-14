@@ -19,6 +19,7 @@ export class SpotifyUI {
     this._currentArtworkUrl = null;
     this._isPlaying = false;
     this._progressTimeout = null;
+    this._statusTimeout = null;
     this._lastUpdateTime = null;
     this._currentPosition = 0;
     this._duration = 0;
@@ -324,20 +325,31 @@ export class SpotifyUI {
     this._updateArtwork(metadata);
 
     this._infoBox.connect("button-press-event", () => {
+      this._stopStatusUpdate();
       if (metadata.url) {
         const clipboard = St.Clipboard.get_default();
         clipboard.set_text(St.ClipboardType.CLIPBOARD, metadata.url);
         this._statusLabel.text = "Copied Track URL!";
-        GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1500, () => {
-          this._statusLabel.text = "";
-          return GLib.SOURCE_REMOVE;
-        });
+        this._statusTimeout = GLib.timeout_add(
+          GLib.PRIORITY_DEFAULT,
+          1500,
+          () => {
+            this._statusLabel.text = "";
+            this._statusTimeout = null;
+            return GLib.SOURCE_REMOVE;
+          },
+        );
       } else {
         this._statusLabel.text = "Copying Failed!";
-        GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1500, () => {
-          this._statusLabel.text = "";
-          return GLib.SOURCE_REMOVE;
-        });
+        this._statusTimeout = GLib.timeout_add(
+          GLib.PRIORITY_DEFAULT,
+          1500,
+          () => {
+            this._statusLabel.text = "";
+            this._statusTimeout = null;
+            return GLib.SOURCE_REMOVE;
+          },
+        );
       }
     });
   }
@@ -408,8 +420,15 @@ export class SpotifyUI {
 
   _stopProgressUpdate() {
     if (this._progressTimeout) {
-      GLib.source_remove(this._progressTimeout);
+      GLib.Source.remove(this._progressTimeout);
       this._progressTimeout = null;
+    }
+  }
+
+  _stopStatusUpdate() {
+    if (this._statusTimeout) {
+      GLib.Source.remove(this._statusTimeout);
+      this._statusTimeout = null;
     }
   }
 
@@ -648,6 +667,7 @@ export class SpotifyUI {
 
   destroy() {
     this._stopProgressUpdate();
+    this._stopStatusUpdate();
     if (this._notificationSource) {
       this._notificationSource.destroy();
       this._notificationSource = null;

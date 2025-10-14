@@ -216,7 +216,7 @@ export default class SpotifyExtension extends Extension {
     this._indicator._spotdl.checkSpotDLInstalled((installed) => {
       if (!installed) {
         console.log("SpotDL is not installed");
-        this._indicator._label.text = `${displayText} ✕`;
+        this._indicator._label.text = "SpotDL is not installed";
         return;
       }
     });
