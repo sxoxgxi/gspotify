@@ -2,6 +2,7 @@ import Adw from "gi://Adw";
 import Gio from "gi://Gio";
 import Gtk from "gi://Gtk";
 import Gdk from "gi://Gdk";
+import GLib from "gi://GLib";
 
 import { ExtensionPreferences } from "resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js";
 
@@ -55,6 +56,20 @@ function createFileChooserButton(parent, settings, setting) {
   return fileChooserButton;
 }
 
+function createOpenURLButton(url) {
+  const button = new Gtk.Button({
+    icon_name: "adw-external-link-symbolic",
+    tooltip_text: `Open ${url}`,
+    valign: Gtk.Align.CENTER,
+  });
+
+  button.connect("clicked", () => {
+    Gio.AppInfo.launch_default_for_uri(url, null);
+  });
+
+  return button;
+}
+
 export default class GSpotifyPreferences extends ExtensionPreferences {
   fillPreferencesWindow(window) {
     const settings = this.getSettings();
@@ -62,11 +77,13 @@ export default class GSpotifyPreferences extends ExtensionPreferences {
     const page = new Adw.PreferencesPage();
     window.add(page);
 
-    const group = new Adw.PreferencesGroup({
-      title: `${this.metadata.name} settings`,
-      description: `Configure the ${this.metadata.name} extension`,
+    // General Group
+    const generalGroup = new Adw.PreferencesGroup({
+      title: "General Settings",
+      description: "Configure the general behavior of the extension",
     });
-    page.add(group);
+
+    page.add(generalGroup);
 
     const panelPositionRow = new Adw.ComboRow({
       title: "Panel Position",
@@ -88,8 +105,6 @@ export default class GSpotifyPreferences extends ExtensionPreferences {
       Gio.SettingsBindFlags.DEFAULT,
     );
 
-    group.add(panelPositionRow);
-
     const showInfoTipRow = new Adw.SwitchRow({
       title: "Show Info Tip",
       subtitle:
@@ -101,8 +116,6 @@ export default class GSpotifyPreferences extends ExtensionPreferences {
       "active",
       Gio.SettingsBindFlags.DEFAULT,
     );
-
-    group.add(showInfoTipRow);
 
     const useArtworkColorsRow = new Adw.SwitchRow({
       title: "Use Artwork Colors",
@@ -116,7 +129,16 @@ export default class GSpotifyPreferences extends ExtensionPreferences {
       Gio.SettingsBindFlags.DEFAULT,
     );
 
-    group.add(useArtworkColorsRow);
+    generalGroup.add(panelPositionRow);
+    generalGroup.add(showInfoTipRow);
+    generalGroup.add(useArtworkColorsRow);
+
+    // Downloads Group
+    const downloadsGroup = new Adw.PreferencesGroup({
+      title: "Downloads Settings",
+      description: "Configure the behavior of downloading system",
+    });
+    page.add(downloadsGroup);
 
     const downloadFolderRow = new Adw.ActionRow({
       title: "Download Folder",
@@ -144,8 +166,35 @@ export default class GSpotifyPreferences extends ExtensionPreferences {
     downloadFolderRow.add_suffix(fileChooserButton);
     downloadFolderRow.add_prefix(openDirectoryButton);
     downloadFolderRow.activatable_widget = fileChooserButton;
-    group.add(downloadFolderRow);
 
+    const spotDLRow = new Adw.ActionRow({
+      title: "SpotDL",
+      subtitle: "Check if SpotDL is installed",
+      activatable: true,
+    });
+
+    const openSpotDLsiteButton = createOpenURLButton(
+      "https://github.com/spotDL/spotify-downloader",
+    );
+
+    spotDLRow.connect("activated", () => {
+      try {
+        const [success, stdout, stderr, status] =
+          GLib.spawn_command_line_sync("spotdl --version");
+        if (success && status === 0 && stdout.length > 0) {
+          const spotdlVersion = new TextDecoder().decode(stdout).trim();
+          spotDLRow.subtitle = `Found SpotDL v${spotdlVersion}`;
+        }
+      } catch {
+        spotDLRow.subtitle =
+          "SpotDL not found - Open spotdl's site for installation";
+        spotDLRow.add_suffix(openSpotDLsiteButton);
+      }
+    });
+    downloadsGroup.add(spotDLRow);
+    downloadsGroup.add(downloadFolderRow);
+
+    // About Group
     const aboutGroup = new Adw.PreferencesGroup();
     page.add(aboutGroup);
 
