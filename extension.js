@@ -242,4 +242,29 @@ export default class SpotifyExtension extends Extension {
       },
     );
   }
+
+  toggleSpotifyWindow() {
+    const windowActors = global.get_window_actors();
+
+    for (const actor of windowActors) {
+      const win = actor.get_meta_window();
+      const wmClass = win.get_wm_class()?.toLowerCase();
+
+      if (wmClass && wmClass.includes("spotify")) {
+        if (win.minimized) {
+          win.unminimize();
+          win.activate(global.get_current_time());
+          console.log("Spotify window restored");
+        } else {
+          win.minimize();
+          console.log("Spotify window minimized");
+        }
+
+        return true;
+      }
+    }
+
+    console.warn("Spotify window not found");
+    return false;
+  }
 }

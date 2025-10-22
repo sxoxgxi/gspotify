@@ -217,6 +217,7 @@ export class SpotifyUI {
     this.container.add_child(this._additionalControls);
 
     this._buildShuffleButton();
+    this._buildSpotifyToggleButton();
 
     this._statusLabel = new St.Label({
       text: "",
@@ -242,6 +243,23 @@ export class SpotifyUI {
 
     this._shuffleButton.connect("clicked", () => this._updateShuffleState());
     this._additionalControls.add_child(this._shuffleButton);
+  }
+
+  _buildSpotifyToggleButton() {
+    this._spotifyToggleButton = new St.Button({
+      style_class: "spotify-button-secondary",
+      child: new St.Icon({
+        gicon: Gio.icon_new_for_string(
+          `${this._extension.path}/icons/spotify-symbolic.svg`,
+        ),
+        icon_size: 20,
+      }),
+    });
+
+    this._spotifyToggleButton.connect("clicked", () =>
+      this._extension.toggleSpotifyWindow(),
+    );
+    this._additionalControls.add_child(this._spotifyToggleButton);
   }
 
   _buildSettingsButton() {
@@ -645,6 +663,8 @@ export class SpotifyUI {
     this._shuffleButton.style = `color: ${readableTextColor};`;
     this._settingsButton.style = `color: ${readableTextColor};`;
     this._downloadButton.style = `color: ${readableTextColor};`;
+    this._spotifyToggleButton.style = `color: ${readableTextColor};`;
+
     this._titleLabel.style = `color: ${readableTextColor};`;
     this._artistLabel.style = `color: ${readableTextColor};`;
     this._statusLabel.style = `color: ${readableTextColor};`;
