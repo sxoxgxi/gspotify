@@ -254,6 +254,7 @@ export class SpotifyUI {
     });
 
     this._settingsButton.connect("clicked", () => {
+      this._indicator.menu._getTopMenu().close();
       this._extension.openPreferences();
     });
 
