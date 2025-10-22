@@ -249,10 +249,8 @@ export class SpotifyUI {
     this._spotifyToggleButton = new St.Button({
       style_class: "spotify-button-secondary",
       child: new St.Icon({
-        gicon: Gio.icon_new_for_string(
-          `${this._extension.path}/icons/spotify-symbolic.svg`,
-        ),
-        icon_size: 20,
+        icon_name: "view-reveal-symbolic",
+        icon_size: 16,
       }),
     });
 
@@ -283,9 +281,7 @@ export class SpotifyUI {
     this._downloadButton = new St.Button({
       style_class: "spotify-button-secondary",
       child: new St.Icon({
-        gicon: Gio.icon_new_for_string(
-          `${this._extension.path}/icons/download-symbolic.svg`,
-        ),
+        icon_name: "folder-download-symbolic",
         icon_size: 16,
       }),
     });
