@@ -19,6 +19,7 @@ const SpotifyIndicator = GObject.registerClass(
       this._extension = extension;
       this._panelPosition = panelPosition;
       this._dbus = new SpotifyDBus(this);
+      this._volumeTimeout = null;
 
       this._ui = new SpotifyUI(this, extension, (dominantColor) => {
         this._onColorUpdate(dominantColor);
@@ -34,11 +35,42 @@ const SpotifyIndicator = GObject.registerClass(
       this.menu.box.add_child(this._ui.container);
 
       this.updateLabel();
+      this.connect("scroll-event", this._handleScrollEvent.bind(this));
     }
 
     _onColorUpdate(dominantColor) {
       if (dominantColor) {
         this.menu.box.style = `background-color: rgb(${dominantColor.r}, ${dominantColor.g}, ${dominantColor.b});`;
+      }
+    }
+
+    _handleScrollEvent(actor, event) {
+      const volumeStep = this._extension._settings.get_double("volume-step");
+      const direction = event.get_scroll_direction();
+      let newVol = null;
+
+      if (direction === Clutter.ScrollDirection.UP) {
+        newVol = this._dbus.decreaseVolume(volumeStep);
+      } else if (direction === Clutter.ScrollDirection.DOWN) {
+        newVol = this._dbus.increaseVolume(volumeStep);
+      }
+
+      if (newVol !== null) {
+        this._label.text = `Volume: ${Math.round(newVol * 100)}%`;
+
+        if (this._volumeTimeout) GLib.Source.remove(this._volumeTimeout);
+
+        this._volumeTimeout = GLib.timeout_add(
+          GLib.PRIORITY_DEFAULT,
+          1000,
+          () => {
+            this.updateLabel();
+            this._volumeTimeout = null;
+            return GLib.SOURCE_REMOVE;
+          },
+        );
+
+        return Clutter.EVENT_STOP;
       }
     }
 
@@ -67,6 +99,12 @@ const SpotifyIndicator = GObject.registerClass(
       this._ui.destroy();
       this._ui = null;
       this._spotdl.destroy();
+
+      if (this._volumeTimeout) {
+        GLib.Source.remove(this._volumeTimeout);
+        this._volumeTimeout = null;
+      }
+
       super.destroy();
     }
   },

@@ -32,5 +32,13 @@
       </description>
     </key>
       
+    <key name="volume-step" type="d">
+      <default>0.05</default>
+      <summary>Volume change step</summary>
+      <description>The amount the volume changes when scrolling the top panel label.
+        Value should be between 0.01 and 1.0 (1 = 100% volume).
+      </description>
+    </key>
+
   </schema>
 </schemalist>

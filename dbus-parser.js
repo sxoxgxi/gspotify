@@ -7,6 +7,7 @@ const spotifyDbus = `<node>
     <property name="Metadata" type="a{sv}" access="read"/>
     <property name="Position" type="x" access="read"/>
     <property name="Shuffle" type="b" access="readwrite"/>
+    <property name="Volume" type="d" access="readwrite"/>
     <method name="PlayPause"/>
     <method name="Next"/>
     <method name="Previous"/>
@@ -223,5 +224,85 @@ export class SpotifyDBus {
     } catch (e) {
       console.warn("Failed to toggle Shuffle");
     }
+  }
+
+  getVolume() {
+    if (!this.proxy) {
+      console.warn("DBus proxy not available for getVolume");
+      return null;
+    }
+
+    try {
+      const volumeVariant = this.proxy.call_sync(
+        "org.freedesktop.DBus.Properties.Get",
+        new GLib.Variant("(ss)", ["org.mpris.MediaPlayer2.Player", "Volume"]),
+        Gio.DBusCallFlags.NONE,
+        -1,
+        null,
+      );
+
+      const innerVariant = volumeVariant.get_child_value(0);
+      if (innerVariant.is_of_type(GLib.VariantType.new("v"))) {
+        const volumeValue = innerVariant.get_variant();
+        if (volumeValue.is_of_type(GLib.VariantType.new("d"))) {
+          return volumeValue.get_double();
+        }
+      }
+      console.warn("Unexpected variant type for Volume");
+      return null;
+    } catch (e) {
+      console.warn("Failed to get Volume");
+      return null;
+    }
+  }
+
+  setVolume(volume) {
+    if (!this.proxy) {
+      console.warn("DBus proxy not available for setVolume");
+      return false;
+    }
+
+    const clampedVolume = Math.max(0.0, Math.min(1.0, volume));
+
+    try {
+      this.proxy.call_sync(
+        "org.freedesktop.DBus.Properties.Set",
+        new GLib.Variant("(ssv)", [
+          "org.mpris.MediaPlayer2.Player",
+          "Volume",
+          new GLib.Variant("d", clampedVolume),
+        ]),
+        Gio.DBusCallFlags.NONE,
+        -1,
+        null,
+      );
+      return true;
+    } catch (e) {
+      console.warn(`Failed to set Volume to ${clampedVolume}`);
+      return false;
+    }
+  }
+
+  adjustVolume(delta, step = 0.1) {
+    const currentVolume = this.getVolume();
+    if (currentVolume === null) {
+      return null;
+    }
+
+    const adjustment = delta > 0 ? step : -step;
+    const newVolume = Math.max(0.0, Math.min(1.0, currentVolume + adjustment));
+
+    if (this.setVolume(newVolume)) {
+      return newVolume;
+    }
+    return null;
+  }
+
+  increaseVolume(step = 0.1) {
+    return this.adjustVolume(1, step);
+  }
+
+  decreaseVolume(step = 0.1) {
+    return this.adjustVolume(-1, step);
   }
 }

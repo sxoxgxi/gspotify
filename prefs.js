@@ -129,9 +129,37 @@ export default class GSpotifyPreferences extends ExtensionPreferences {
       Gio.SettingsBindFlags.DEFAULT,
     );
 
+    const volumeStepAdj = new Gtk.Adjustment({
+      lower: 1,
+      upper: 50,
+      step_increment: 1,
+      value: Math.round(settings.get_double("volume-step") * 100),
+    });
+
+    const volumeStepRow = new Adw.SpinRow({
+      title: "Volume Step",
+      subtitle: "Percentage change when scrolling the top panel label",
+      adjustment: volumeStepAdj,
+      numeric: true,
+      digits: 0,
+    });
+
+    const adj = volumeStepRow.adjustment;
+
+    adj.connect("notify::value", () => {
+      let value = adj.value;
+      if (value < adj.lower) value = adj.lower;
+      if (value > adj.upper) value = adj.upper;
+
+      if (!isNaN(value)) {
+        settings.set_double("volume-step", Math.round(value) / 100);
+      }
+    });
+
     generalGroup.add(panelPositionRow);
     generalGroup.add(showInfoTipRow);
     generalGroup.add(useArtworkColorsRow);
+    generalGroup.add(volumeStepRow);
 
     // Downloads Group
     const downloadsGroup = new Adw.PreferencesGroup({
