@@ -50,9 +50,9 @@ const SpotifyIndicator = GObject.registerClass(
       let newVol = null;
 
       if (direction === Clutter.ScrollDirection.UP) {
-        newVol = this._dbus.decreaseVolume(volumeStep);
-      } else if (direction === Clutter.ScrollDirection.DOWN) {
         newVol = this._dbus.increaseVolume(volumeStep);
+      } else if (direction === Clutter.ScrollDirection.DOWN) {
+        newVol = this._dbus.decreaseVolume(volumeStep);
       }
 
       if (newVol !== null) {
