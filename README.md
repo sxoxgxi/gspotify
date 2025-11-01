@@ -10,7 +10,7 @@ It is designed to be theme-aware, and customizable\*
 
 - **Now Playing info**: Show track title in the top bar.
 - **Album Art**: Displays album art in the dropdown menu.
-- **Playback Controls**: Play, pause, skip, and previous buttons.
+- **Playback Controls**: Play, pause, skip, previous and volume control.
 - **Progress Bar**: Live track progress indicator with dynamic accent color.
 - **Theme-Aware Colors**: Colors adapt based on the dominant album art color.
 
