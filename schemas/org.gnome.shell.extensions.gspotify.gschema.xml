@@ -40,5 +40,13 @@
       </description>
     </key>
 
+    <key name="invert-scroll" type="b">
+      <default>false</default>
+      <summary>Invert scroll direction</summary>
+      <description>
+        Touchpad-style gestures, where swiping up increases the volume and swiping down decreases it.
+      </description>
+    </key>
+
   </schema>
 </schemalist>

@@ -46,14 +46,21 @@ const SpotifyIndicator = GObject.registerClass(
 
     _handleScrollEvent(actor, event) {
       const volumeStep = this._extension._settings.get_double("volume-step");
+      const invertScroll =
+        this._extension._settings.get_boolean("invert-scroll");
       const direction = event.get_scroll_direction();
       let newVol = null;
 
-      if (direction === Clutter.ScrollDirection.UP) {
-        newVol = this._dbus.increaseVolume(volumeStep);
-      } else if (direction === Clutter.ScrollDirection.DOWN) {
-        newVol = this._dbus.decreaseVolume(volumeStep);
-      }
+      if (direction === Clutter.ScrollDirection.UP)
+        newVol =
+          this._dbus[invertScroll ? "decreaseVolume" : "increaseVolume"](
+            volumeStep,
+          );
+      else if (direction === Clutter.ScrollDirection.DOWN)
+        newVol =
+          this._dbus[invertScroll ? "increaseVolume" : "decreaseVolume"](
+            volumeStep,
+          );
 
       if (newVol !== null) {
         this._label.text = `Volume: ${Math.round(newVol * 100)}%`;

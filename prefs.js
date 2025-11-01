@@ -156,10 +156,23 @@ export default class GSpotifyPreferences extends ExtensionPreferences {
       }
     });
 
+    const invertScrollRow = new Adw.SwitchRow({
+      title: "Invert scroll direction",
+      subtitle:
+        "Touchpad-style gestures, where swiping up increases the volume and swiping down decreases it",
+    });
+    settings.bind(
+      "invert-scroll",
+      invertScrollRow,
+      "active",
+      Gio.SettingsBindFlags.DEFAULT,
+    );
+
     generalGroup.add(panelPositionRow);
     generalGroup.add(showInfoTipRow);
     generalGroup.add(useArtworkColorsRow);
     generalGroup.add(volumeStepRow);
+    generalGroup.add(invertScrollRow);
 
     // Downloads Group
     const downloadsGroup = new Adw.PreferencesGroup({
@@ -227,7 +240,7 @@ export default class GSpotifyPreferences extends ExtensionPreferences {
     page.add(aboutGroup);
 
     const aboutRow = new Adw.ActionRow({
-      title: `About ${this.metadata.name}`,
+      title: "About GSpotify",
       subtitle: "Learn more about this extension",
       activatable: true,
     });
