@@ -25,6 +25,19 @@ export class SpotifyUI {
     this._duration = 0;
     this._notificationSource = null;
     this._shuffleState = false;
+    this.useFixedWidth = extension._settings.get_boolean("use-fixed-width");
+    this.fixedWidth = extension._settings.get_int("ui-width");
+
+    this._widthChangedId = this._settings.connect("changed::ui-width", () => {
+      this._onWidthSettingsChanged();
+    });
+
+    this._useFixedWidthChangedId = this._settings.connect(
+      "changed::use-fixed-width",
+      () => {
+        this._onWidthSettingsChanged();
+      },
+    );
 
     this._buildUI();
   }
@@ -33,7 +46,8 @@ export class SpotifyUI {
     this.container = new St.BoxLayout({
       style_class: "spotify-card",
       vertical: true,
-      x_expand: true,
+      width: this.useFixedWidth ? this.fixedWidth : -1,
+      x_expand: !this.useFixedWidth,
       y_expand: true,
     });
 
@@ -153,10 +167,14 @@ export class SpotifyUI {
   }
 
   _buildInfoSection() {
+    const infoBoxWidth = this.useFixedWidth
+      ? this.fixedWidth - 64 - 32 - 40
+      : -1;
     this._infoBox = new St.BoxLayout({
       style_class: "spotify-info-box",
       vertical: true,
-      x_expand: true,
+      width: infoBoxWidth,
+      x_expand: !this.useFixedWidth,
       x_align: Clutter.ActorAlign.CENTER,
       y_align: Clutter.ActorAlign.CENTER,
       reactive: true,
@@ -166,7 +184,11 @@ export class SpotifyUI {
     this._titleLabel = new St.Label({
       style_class: "spotify-title",
       text: "No track playing",
+      x_align: Clutter.ActorAlign.CENTER,
     });
+
+    this._titleLabel.clutter_text.ellipsize = 3;
+    this._titleLabel.clutter_text.line_wrap = false;
     this._infoBox.add_child(this._titleLabel);
 
     this._artistLabel = new St.Label({
@@ -699,9 +721,44 @@ export class SpotifyUI {
     source.addNotification(notification);
   }
 
+  _onWidthSettingsChanged() {
+    this.useFixedWidth = this._settings.get_boolean("use-fixed-width");
+    this.fixedWidth = this._settings.get_int("ui-width");
+
+    if (this.useFixedWidth) {
+      this.container.width = this.fixedWidth;
+      this.container.x_expand = false;
+    } else {
+      this.container.width = -1;
+      this.container.x_expand = true;
+    }
+
+    if (this.useFixedWidth) {
+      const infoBoxWidth = this.fixedWidth - 64 - 32 - 40;
+      this._infoBox.width = infoBoxWidth;
+      this._infoBox.x_expand = false;
+    } else {
+      this._infoBox.width = -1;
+      this._infoBox.x_expand = true;
+    }
+
+    this._updateProgressBar();
+  }
+
   destroy() {
     this._stopProgressUpdate();
     this._stopStatusUpdate();
+
+    if (this._widthChangedId) {
+      this._settings.disconnect(this._widthChangedId);
+      this._widthChangedId = null;
+    }
+
+    if (this._useFixedWidthChangedId) {
+      this._settings.disconnect(this._useFixedWidthChangedId);
+      this._useFixedWidthChangedId = null;
+    }
+
     if (this._notificationSource) {
       this._notificationSource.destroy();
       this._notificationSource = null;

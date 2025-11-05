@@ -168,11 +168,44 @@ export default class GSpotifyPreferences extends ExtensionPreferences {
       Gio.SettingsBindFlags.DEFAULT,
     );
 
+    const useFixedWidthRow = new Adw.SwitchRow({
+      title: "Use Fixed Width",
+      subtitle: "Enable fixed width for the UI panel",
+    });
+    settings.bind(
+      "use-fixed-width",
+      useFixedWidthRow,
+      "active",
+      Gio.SettingsBindFlags.DEFAULT,
+    );
+
+    const widthRow = new Adw.SpinRow({
+      title: "UI Width",
+      subtitle: "Fixed width in pixels (250-600)",
+      adjustment: new Gtk.Adjustment({
+        lower: 250,
+        upper: 600,
+        step_increment: 10,
+        page_increment: 50,
+        value: settings.get_int("ui-width"),
+      }),
+    });
+    settings.bind("ui-width", widthRow, "value", Gio.SettingsBindFlags.DEFAULT);
+
+    settings.bind(
+      "use-fixed-width",
+      widthRow,
+      "sensitive",
+      Gio.SettingsBindFlags.DEFAULT,
+    );
+
     generalGroup.add(panelPositionRow);
     generalGroup.add(showInfoTipRow);
     generalGroup.add(useArtworkColorsRow);
     generalGroup.add(volumeStepRow);
     generalGroup.add(invertScrollRow);
+    generalGroup.add(useFixedWidthRow);
+    generalGroup.add(widthRow);
 
     // Downloads Group
     const downloadsGroup = new Adw.PreferencesGroup({

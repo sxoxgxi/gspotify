@@ -48,5 +48,17 @@
       </description>
     </key>
 
+    <key name="use-fixed-width" type="b">
+      <default>false</default>
+      <summary>Use Fixed Width</summary>
+      <description>Enable fixed width for the Spotify UI panel</description>
+    </key>
+
+    <key name="ui-width" type="i">
+      <default>360</default>
+      <summary>UI Width</summary>
+      <description>Fixed width of the Spotify UI panel in pixels</description>
+    </key>     
+
   </schema>
 </schemalist>
