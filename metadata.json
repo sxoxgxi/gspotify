@@ -2,7 +2,7 @@
   "uuid": "gspotify@sogi.is-a.dev",
   "name": "GSpotify & Downloader",
   "description": "A label, downloader and integrated Spotify controller for GNOME Shell. Uses system clipboard for menu actions. Uses spotdl for downloads. This extension is not affiliated, funded, or in any way associated with Spotify.",
-  "shell-version": ["47", "48", "49"],
+  "shell-version": ["46", "47", "48", "49"],
   "url": "https://github.com/sxoxgxi/gspotify",
   "settings-schema": "org.gnome.shell.extensions.gspotify",
   "gettext-domain": "gspotify",

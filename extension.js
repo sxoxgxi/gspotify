@@ -10,7 +10,7 @@ import { Extension } from "resource:///org/gnome/shell/extensions/extension.js";
 import { SpotifyDBus } from "./dbus-parser.js";
 import { SpotifyUI } from "./spotui.js";
 import { SpotDLExecutor } from "./spotdl.js";
-import { getStatusSymbol } from "./utils.js";
+import { getStatusSymbol, toggleSpotifyWindow } from "./utils.js";
 
 const SpotifyIndicator = GObject.registerClass(
   class SpotifyIndicator extends PanelMenu.Button {
@@ -117,9 +117,79 @@ const SpotifyIndicator = GObject.registerClass(
   },
 );
 
+const IconIndicator = GObject.registerClass(
+  class IconIndicator extends PanelMenu.Button {
+    _init(extension, panelPosition = 0) {
+      super._init(0.5, "Icon Indicator", false);
+      this._extension = extension;
+      this._panelPosition = panelPosition;
+      this._minimizeTimeout = null;
+
+      this._icon = new St.Icon({
+        gicon: Gio.Icon.new_for_string(
+          `${this._extension.path}/icons/spotify-symbolic.svg`,
+        ),
+        icon_size: 16,
+      });
+      this.add_child(this._icon);
+      this.connect("button-press-event", this._openSpotify.bind(this));
+    }
+
+    _openSpotify() {
+      const openMinimize = this._extension._settings.get_boolean(
+        "open-spotify-minimized",
+      );
+      let apps = Gio.AppInfo.get_all();
+      let spotifyApp = apps.find((app) => {
+        let name = app.get_name().toLowerCase();
+        let id = app.get_id()?.toLowerCase() || "";
+        return name.includes("spotify") || id.includes("spotify");
+      });
+
+      if (spotifyApp) {
+        try {
+          spotifyApp.launch([], null);
+          console.log("Launching Spotify...");
+
+          if (openMinimize) {
+            this._stopMinimizeUpdate();
+            let tries = 0;
+            this._minimizeTimeout = GLib.timeout_add(
+              GLib.PRIORITY_DEFAULT,
+              500,
+              () => {
+                if (toggleSpotifyWindow("minimize") || tries++ > 10)
+                  return GLib.SOURCE_REMOVE;
+                return GLib.SOURCE_CONTINUE;
+              },
+            );
+          }
+        } catch (e) {
+          console.error("Failed to launch Spotify: " + e);
+        }
+      } else {
+        console.log("Spotify app not found");
+      }
+    }
+
+    _stopMinimizeUpdate() {
+      if (this._minimizeTimeout) {
+        GLib.Source.remove(this._minimizeTimeout);
+        this._minimizeTimeout = null;
+      }
+    }
+
+    destroy() {
+      this._stopMinimizeUpdate();
+      super.destroy();
+    }
+  },
+);
+
 export default class SpotifyExtension extends Extension {
   enable() {
     this._indicator = null;
+    this._iconIndicator = null;
     this._watcherId = null;
 
     this._settings = this.getSettings();
@@ -131,6 +201,13 @@ export default class SpotifyExtension extends Extension {
       },
     );
 
+    this._presistSettingsHandlerId = this._settings.connect(
+      "changed::presist-indicator",
+      () => {
+        this._onPresistIndicatorChanged();
+      },
+    );
+
     this._watcherId = Gio.bus_watch_name(
       Gio.BusType.SESSION,
       "org.mpris.MediaPlayer2.spotify",
@@ -138,12 +215,22 @@ export default class SpotifyExtension extends Extension {
       this._onSpotifyAppeared.bind(this),
       this._onSpotifyVanished.bind(this),
     );
+
+    const presistIndicator = this._settings.get_boolean("presist-indicator");
+    if (presistIndicator && !this._indicator) {
+      this._createIndicator(true);
+    }
   }
 
   disable() {
     if (this._settingsHandlerId) {
       this._settings.disconnect(this._settingsHandlerId);
       this._settingsHandlerId = null;
+    }
+
+    if (this._presistSettingsHandlerId) {
+      this._settings.disconnect(this._presistSettingsHandlerId);
+      this._presistSettingsHandlerId = null;
     }
 
     if (this._watcherId) {
@@ -154,6 +241,11 @@ export default class SpotifyExtension extends Extension {
     if (this._indicator) {
       this._indicator.destroy();
       this._indicator = null;
+    }
+
+    if (this._iconIndicator) {
+      this._iconIndicator.destroy();
+      this._iconIndicator = null;
     }
 
     if (this._settings) {
@@ -168,25 +260,50 @@ export default class SpotifyExtension extends Extension {
 
   _onPanelPositionChanged() {
     if (this._indicator) {
-      this._recreateIndicator();
+      this._recreateIndicator(false);
+    } else if (this._iconIndicator) {
+      this._recreateIndicator(true);
     }
   }
 
-  _recreateIndicator() {
-    if (this._indicator) {
+  _onPresistIndicatorChanged() {
+    const presistIndicator = this._settings.get_boolean("presist-indicator");
+
+    if (!this._indicator) {
+      if (presistIndicator && !this._iconIndicator) {
+        this._createIndicator(true);
+      } else if (!presistIndicator && this._iconIndicator) {
+        this._iconIndicator.destroy();
+        this._iconIndicator = null;
+      }
+    }
+  }
+
+  _recreateIndicator(isIconOnly = false) {
+    if (isIconOnly && this._iconIndicator) {
+      const oldIconIndicator = this._iconIndicator;
+      this._iconIndicator = null;
+      oldIconIndicator.destroy();
+    } else if (!isIconOnly && this._indicator) {
       const oldIndicator = this._indicator;
       this._indicator = null;
       oldIndicator.destroy();
-
-      this._createIndicator();
     }
+
+    this._createIndicator(isIconOnly);
   }
 
-  _createIndicator() {
-    if (this._indicator) return;
+  _createIndicator(isIconOnly = false) {
+    if (isIconOnly && this._iconIndicator) return;
+    if (!isIconOnly && this._indicator) return;
 
     const panelPosition = this._getPanelPosition();
-    this._indicator = new SpotifyIndicator(this, panelPosition);
+
+    if (isIconOnly) {
+      this._iconIndicator = new IconIndicator(this, panelPosition);
+    } else {
+      this._indicator = new SpotifyIndicator(this, panelPosition);
+    }
 
     let alignment = "left";
     let gravity = 0;
@@ -214,21 +331,35 @@ export default class SpotifyExtension extends Extension {
         break;
     }
 
-    Main.panel.addToStatusArea(this.uuid, this._indicator, gravity, alignment);
+    const indicator = isIconOnly ? this._iconIndicator : this._indicator;
+    const statusAreaId = isIconOnly ? `${this.uuid}-icon` : this.uuid;
+    Main.panel.addToStatusArea(statusAreaId, indicator, gravity, alignment);
   }
 
   _onSpotifyAppeared() {
     if (!this._indicator) {
       console.info("Spotify appeared on DBus");
-      this._createIndicator();
+
+      if (this._iconIndicator) {
+        this._iconIndicator.destroy();
+        this._iconIndicator = null;
+      }
+
+      this._createIndicator(false);
     }
   }
 
   _onSpotifyVanished() {
+    const presistIndicator = this._settings.get_boolean("presist-indicator");
+
     if (this._indicator) {
       console.info("Spotify vanished from DBus");
       this._indicator.destroy();
       this._indicator = null;
+
+      if (presistIndicator) {
+        this._createIndicator(true);
+      }
     }
   }
 
@@ -286,30 +417,5 @@ export default class SpotifyExtension extends Extension {
         }
       },
     );
-  }
-
-  toggleSpotifyWindow() {
-    const windowActors = global.get_window_actors();
-
-    for (const actor of windowActors) {
-      const win = actor.get_meta_window();
-      const wmClass = win.get_wm_class()?.toLowerCase();
-
-      if (wmClass && wmClass.includes("spotify")) {
-        if (win.minimized) {
-          win.unminimize();
-          win.activate(global.get_current_time());
-          console.log("Spotify window restored");
-        } else {
-          win.minimize();
-          console.log("Spotify window minimized");
-        }
-
-        return true;
-      }
-    }
-
-    console.warn("Spotify window not found");
-    return false;
   }
 }

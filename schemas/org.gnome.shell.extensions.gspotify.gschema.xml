@@ -60,5 +60,17 @@
       <description>Fixed width of the Spotify UI panel in pixels</description>
     </key>     
 
+    <key name="presist-indicator" type="b">
+      <default>false</default>
+      <summary>Presists Indicator</summary>
+      <description>Show the spotify icon in the panel even if Spotify is not running. Clicking the icon will open Spotify</description>
+    </key>
+
+    <key name="open-spotify-minimized" type="b">
+      <default>false</default>
+      <summary>Open Spotify Minimized</summary>
+      <description>Launch Spotify in minimized state when opening from the indicator</description>
+    </key>
+
   </schema>
 </schemalist>

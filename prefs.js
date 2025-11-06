@@ -157,7 +157,7 @@ export default class GSpotifyPreferences extends ExtensionPreferences {
     });
 
     const invertScrollRow = new Adw.SwitchRow({
-      title: "Invert scroll direction",
+      title: "Invert Scroll Direction",
       subtitle:
         "Touchpad-style gestures, where swiping up increases the volume and swiping down decreases it",
     });
@@ -199,6 +199,36 @@ export default class GSpotifyPreferences extends ExtensionPreferences {
       Gio.SettingsBindFlags.DEFAULT,
     );
 
+    const presistIndicatorRow = new Adw.SwitchRow({
+      title: "Persist Indicator",
+      subtitle:
+        "Shows Spotify's icon indicator even if the spotify client is not running, opens the app when clicked",
+    });
+    settings.bind(
+      "presist-indicator",
+      presistIndicatorRow,
+      "active",
+      Gio.SettingsBindFlags.DEFAULT,
+    );
+
+    const minimizedSpotifyRow = new Adw.SwitchRow({
+      title: "Minimized Spotify",
+      subtitle:
+        "Launch Spotify in minimized state when opening from the indicator",
+    });
+    settings.bind(
+      "open-spotify-minimized",
+      minimizedSpotifyRow,
+      "active",
+      Gio.SettingsBindFlags.DEFAULT,
+    );
+    settings.bind(
+      "presist-indicator",
+      minimizedSpotifyRow,
+      "sensitive",
+      Gio.SettingsBindFlags.DEFAULT,
+    );
+
     generalGroup.add(panelPositionRow);
     generalGroup.add(showInfoTipRow);
     generalGroup.add(useArtworkColorsRow);
@@ -206,6 +236,8 @@ export default class GSpotifyPreferences extends ExtensionPreferences {
     generalGroup.add(invertScrollRow);
     generalGroup.add(useFixedWidthRow);
     generalGroup.add(widthRow);
+    generalGroup.add(presistIndicatorRow);
+    generalGroup.add(minimizedSpotifyRow);
 
     // Downloads Group
     const downloadsGroup = new Adw.PreferencesGroup({

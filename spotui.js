@@ -7,6 +7,7 @@ import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as MessageTray from "resource:///org/gnome/shell/ui/messageTray.js";
 
 import { INFO_TIPS } from "./constants.js";
+import { toggleSpotifyWindow } from "./utils.js";
 
 export class SpotifyUI {
   constructor(indicator, extension, onColorUpdate = null) {
@@ -276,9 +277,7 @@ export class SpotifyUI {
       }),
     });
 
-    this._spotifyToggleButton.connect("clicked", () =>
-      this._extension.toggleSpotifyWindow(),
-    );
+    this._spotifyToggleButton.connect("clicked", () => toggleSpotifyWindow());
     this._additionalControls.add_child(this._spotifyToggleButton);
   }
 
