@@ -211,6 +211,8 @@ export default class SpotifyExtension extends Extension {
   }
 
   disable() {
+    this._clearMinimizeTimeout();
+
     if (this._settingsHandlerId) {
       this._settings.disconnect(this._settingsHandlerId);
       this._settingsHandlerId = null;
@@ -239,8 +241,6 @@ export default class SpotifyExtension extends Extension {
     if (this._settings) {
       this._settings = null;
     }
-
-    this._clearMinimizeTimeout();
   }
 
   _getPanelPosition() {
