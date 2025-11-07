@@ -1,6 +1,8 @@
 import Gio from "gi://Gio";
 import GLib from "gi://GLib";
 
+import { logWarn } from "./utils.js";
+
 const spotifyDbus = `<node>
 <interface name="org.mpris.MediaPlayer2.Player">
     <property name="PlaybackStatus" type="s" access="read"/>
@@ -50,7 +52,7 @@ export class SpotifyDBus {
         this.panelButton.updateLabel({ position_ms: position / 1000 });
       });
     } catch (e) {
-      console.warn("Failed to create DBus proxy");
+      logWarn("Failed to create DBus proxy");
       this.proxy = null;
     }
   }
@@ -92,13 +94,13 @@ export class SpotifyDBus {
           if (positionValue.is_of_type(GLib.VariantType.new("x"))) {
             position_ms = positionValue.get_int64() / 1000;
           } else {
-            console.warn(
+            logWarn(
               "Unexpected inner variant type for Position:",
               positionValue.get_type_string(),
             );
           }
         } else {
-          console.warn(
+          logWarn(
             "Unexpected outer variant type for Position:",
             innerVariant.get_type_string(),
           );
@@ -108,11 +110,11 @@ export class SpotifyDBus {
           ? metadata["mpris:length"].unpack() / 1000
           : 0;
         if (position_ms < 0 || (duration_ms > 0 && position_ms > duration_ms)) {
-          console.warn("Invalid position value, setting to 0");
+          logWarn("Invalid position value, setting to 0");
           position_ms = 0;
         }
       } catch (e) {
-        console.warn(e, "Failed to fetch Position via Properties.Get");
+        logWarn(e, "Failed to fetch Position via Properties.Get");
       }
 
       return {
@@ -152,7 +154,7 @@ export class SpotifyDBus {
 
   control(action) {
     if (!this.proxy) {
-      console.warn("DBus proxy not available for control action");
+      logWarn("DBus proxy not available for control action");
       return;
     }
 
@@ -180,12 +182,12 @@ export class SpotifyDBus {
           );
           break;
         default:
-          console.warn(`Unknown control action: ${action}`);
+          logWarn(`Unknown control action: ${action}`);
           return;
       }
       this.panelButton.updateLabel();
     } catch (e) {
-      console.warn(`Failed to execute control action: ${action}`);
+      logWarn(`Failed to execute control action: ${action}`);
     }
   }
 
@@ -196,7 +198,7 @@ export class SpotifyDBus {
     try {
       return this.proxy.Shuffle;
     } catch (e) {
-      console.warn("Failed to get Shuffle state");
+      logWarn("Failed to get Shuffle state");
       return false;
     }
   }
@@ -222,13 +224,13 @@ export class SpotifyDBus {
       this.panelButton.updateLabel();
       return newValue;
     } catch (e) {
-      console.warn("Failed to toggle Shuffle");
+      logWarn("Failed to toggle Shuffle");
     }
   }
 
   getVolume() {
     if (!this.proxy) {
-      console.warn("DBus proxy not available for getVolume");
+      logWarn("DBus proxy not available for getVolume");
       return null;
     }
 
@@ -248,17 +250,17 @@ export class SpotifyDBus {
           return volumeValue.get_double();
         }
       }
-      console.warn("Unexpected variant type for Volume");
+      logWarn("Unexpected variant type for Volume");
       return null;
     } catch (e) {
-      console.warn("Failed to get Volume");
+      logWarn("Failed to get Volume");
       return null;
     }
   }
 
   setVolume(volume) {
     if (!this.proxy) {
-      console.warn("DBus proxy not available for setVolume");
+      logWarn("DBus proxy not available for setVolume");
       return false;
     }
 
@@ -278,7 +280,7 @@ export class SpotifyDBus {
       );
       return true;
     } catch (e) {
-      console.warn(`Failed to set Volume to ${clampedVolume}`);
+      logWarn(`Failed to set Volume to ${clampedVolume}`);
       return false;
     }
   }

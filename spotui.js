@@ -7,7 +7,7 @@ import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as MessageTray from "resource:///org/gnome/shell/ui/messageTray.js";
 
 import { INFO_TIPS } from "./constants.js";
-import { toggleSpotifyWindow } from "./utils.js";
+import { toggleSpotifyWindow, logWarn } from "./utils.js";
 
 export class SpotifyUI {
   constructor(indicator, extension, onColorUpdate = null) {
@@ -516,7 +516,7 @@ export class SpotifyUI {
         this._loadArtworkFromUrl(url);
       }
     } catch (e) {
-      console.warn("Failed to load artwork");
+      logWarn("Failed to load artwork");
       this._setFallbackArtwork();
     }
   }
@@ -529,7 +529,7 @@ export class SpotifyUI {
         if (!success) throw new Error("Failed to load file");
         this._setArtworkFromBytes(bytes);
       } catch (e) {
-        console.warn("Failed to load local artwork");
+        logWarn("Failed to load local artwork");
         this._setFallbackArtwork();
       }
     });
@@ -543,7 +543,7 @@ export class SpotifyUI {
         if (!success) throw new Error("Failed to load contents from URL");
         this._setArtworkFromBytes(bytes);
       } catch (e) {
-        console.warn("Failed to load artwork from URL");
+        logWarn("Failed to load artwork from URL");
         this._setFallbackArtwork();
       }
     });
@@ -578,7 +578,7 @@ export class SpotifyUI {
         }
       }
     } catch (e) {
-      console.warn("Failed to set artwork from bytes");
+      logWarn("Failed to set artwork from bytes");
       this._setFallbackArtwork();
     }
   }
@@ -639,7 +639,7 @@ export class SpotifyUI {
         };
       }
     } catch (e) {
-      console.warn("Failed to get color palette");
+      logWarn("Failed to get color palette");
     }
     return null;
   }

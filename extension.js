@@ -11,6 +11,7 @@ import { SpotifyDBus } from "./dbus-parser.js";
 import { SpotifyUI } from "./spotui.js";
 import { SpotDLExecutor } from "./spotdl.js";
 import { getStatusSymbol, toggleSpotifyWindow } from "./utils.js";
+import { logInfo, logWarn, logError } from "./utils.js";
 
 const SpotifyIndicator = GObject.registerClass(
   class SpotifyIndicator extends PanelMenu.Button {
@@ -63,7 +64,7 @@ const SpotifyIndicator = GObject.registerClass(
           );
 
       if (newVol !== null) {
-        this._label.text = `Volume: ${Math.round(newVol * 100)}%`;
+        this._label.text = `Current Volume: ${Math.round(newVol * 100)}%`;
 
         if (this._volumeTimeout) GLib.Source.remove(this._volumeTimeout);
 
@@ -82,6 +83,9 @@ const SpotifyIndicator = GObject.registerClass(
     }
 
     updateLabel(overridePosition) {
+      if (!this._dbus) {
+        return;
+      }
       const metadata = this._dbus.getMetadata();
 
       if (overridePosition) {
@@ -123,13 +127,12 @@ const IconIndicator = GObject.registerClass(
       super._init(0.5, "Icon Indicator", false);
       this._extension = extension;
       this._panelPosition = panelPosition;
-      this._minimizeTimeout = null;
 
       this._icon = new St.Icon({
         gicon: Gio.Icon.new_for_string(
           `${this._extension.path}/icons/spotify-symbolic.svg`,
         ),
-        icon_size: 16,
+        icon_size: 20,
       });
       this.add_child(this._icon);
       this.connect("button-press-event", this._openSpotify.bind(this));
@@ -139,48 +142,32 @@ const IconIndicator = GObject.registerClass(
       const openMinimize = this._extension._settings.get_boolean(
         "open-spotify-minimized",
       );
-      let apps = Gio.AppInfo.get_all();
-      let spotifyApp = apps.find((app) => {
-        let name = app.get_name().toLowerCase();
-        let id = app.get_id()?.toLowerCase() || "";
+
+      const apps = Gio.AppInfo.get_all();
+      const spotifyApp = apps.find((app) => {
+        const name = app.get_name().toLowerCase();
+        const id = app.get_id()?.toLowerCase() || "";
         return name.includes("spotify") || id.includes("spotify");
       });
 
-      if (spotifyApp) {
-        try {
-          spotifyApp.launch([], null);
-          console.log("Launching Spotify...");
-
-          if (openMinimize) {
-            this._stopMinimizeUpdate();
-            let tries = 0;
-            this._minimizeTimeout = GLib.timeout_add(
-              GLib.PRIORITY_DEFAULT,
-              500,
-              () => {
-                if (toggleSpotifyWindow("minimize") || tries++ > 10)
-                  return GLib.SOURCE_REMOVE;
-                return GLib.SOURCE_CONTINUE;
-              },
-            );
-          }
-        } catch (e) {
-          console.error("Failed to launch Spotify: " + e);
-        }
-      } else {
-        console.log("Spotify app not found");
+      if (!spotifyApp) {
+        logInfo("Spotify app not found");
+        return;
       }
-    }
 
-    _stopMinimizeUpdate() {
-      if (this._minimizeTimeout) {
-        GLib.Source.remove(this._minimizeTimeout);
-        this._minimizeTimeout = null;
+      try {
+        spotifyApp.launch([], null);
+        logInfo("Launching Spotify...");
+
+        if (openMinimize) {
+          this._extension.scheduleSpotifyMinimize();
+        }
+      } catch (e) {
+        logError("Failed to launch Spotify: " + e);
       }
     }
 
     destroy() {
-      this._stopMinimizeUpdate();
       super.destroy();
     }
   },
@@ -191,6 +178,7 @@ export default class SpotifyExtension extends Extension {
     this._indicator = null;
     this._iconIndicator = null;
     this._watcherId = null;
+    this._minimizeTimeout = null;
 
     this._settings = this.getSettings();
 
@@ -251,6 +239,8 @@ export default class SpotifyExtension extends Extension {
     if (this._settings) {
       this._settings = null;
     }
+
+    this._clearMinimizeTimeout();
   }
 
   _getPanelPosition() {
@@ -338,7 +328,7 @@ export default class SpotifyExtension extends Extension {
 
   _onSpotifyAppeared() {
     if (!this._indicator) {
-      console.info("Spotify appeared on DBus");
+      logInfo("Spotify appeared on DBus");
 
       if (this._iconIndicator) {
         this._iconIndicator.destroy();
@@ -353,7 +343,7 @@ export default class SpotifyExtension extends Extension {
     const presistIndicator = this._settings.get_boolean("presist-indicator");
 
     if (this._indicator) {
-      console.info("Spotify vanished from DBus");
+      logInfo("Spotify vanished from DBus");
       this._indicator.destroy();
       this._indicator = null;
 
@@ -367,7 +357,7 @@ export default class SpotifyExtension extends Extension {
     if (this._indicator && this._indicator._dbus) {
       this._indicator._dbus.control(action);
     } else {
-      console.warn("Spotify indicator not found");
+      logWarn("Spotify indicator not found");
     }
   }
 
@@ -380,7 +370,7 @@ export default class SpotifyExtension extends Extension {
     this._indicator._label.text = `${displayText} ⦿`;
     this._indicator._spotdl.checkSpotDLInstalled((installed) => {
       if (!installed) {
-        console.log("SpotDL is not installed");
+        logInfo("SpotDL is not installed");
         this._indicator._label.text = "SpotDL is not installed";
         return;
       }
@@ -412,10 +402,32 @@ export default class SpotifyExtension extends Extension {
         if (result.success) {
           this._indicator._label.text = `${displayText} ✓`;
         } else {
-          console.warn(`Download failed: ${result.error || result.exitCode}`);
+          logWarn(`Download failed: ${result.error || result.exitCode}`);
           this._indicator._label.text = `${displayText} ✕`;
         }
       },
     );
+  }
+
+  scheduleSpotifyMinimize() {
+    this._clearMinimizeTimeout();
+
+    let tries = 0;
+    this._minimizeTimeout = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 500, () => {
+      const success = toggleSpotifyWindow("minimize");
+      if (success || tries++ > 10) {
+        if (!success) logWarn("Minimize timeout exceeded");
+        this._minimizeTimeout = null;
+        return GLib.SOURCE_REMOVE;
+      }
+      return GLib.SOURCE_CONTINUE;
+    });
+  }
+
+  _clearMinimizeTimeout() {
+    if (this._minimizeTimeout) {
+      GLib.Source.remove(this._minimizeTimeout);
+      this._minimizeTimeout = null;
+    }
   }
 }

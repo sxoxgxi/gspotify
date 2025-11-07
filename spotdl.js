@@ -1,6 +1,8 @@
 import Gio from "gi://Gio";
 import GLib from "gi://GLib";
 
+import { logInfo, logWarn } from "./utils.js";
+
 export class SpotDLExecutor {
   constructor() {
     this.cancellable = new Gio.Cancellable();
@@ -20,9 +22,8 @@ export class SpotDLExecutor {
     } else if (metadata.query) {
       args.push(metadata.query);
     }
-    console.log(metadata.url);
 
-    console.log("Executing command", args);
+    logInfo("Executing command", args);
 
     this._executeCommand(args, onOutput, onComplete);
   }
@@ -61,7 +62,7 @@ export class SpotDLExecutor {
               error: e.message,
             });
           }
-          console.warn(e, "Process wait failed");
+          logWarn(e, "Process wait failed");
         }
       });
     } catch (e) {
@@ -74,7 +75,7 @@ export class SpotDLExecutor {
       if (onComplete) {
         onComplete({ success: false, error: e.message });
       }
-      console.warn(e, "Failed to execute command");
+      logWarn(e, "Failed to execute command");
     }
   }
 
@@ -107,7 +108,7 @@ export class SpotDLExecutor {
           }
         } catch (e) {
           if (!e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED)) {
-            console.warn(e, "Error reading stream");
+            logWarn(e, "Error reading stream");
           }
         }
       },
