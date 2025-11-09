@@ -72,5 +72,11 @@
       <description>Launch Spotify in minimized state when opening from the indicator</description>
     </key>
 
+    <key name="label-length" type="i">
+      <default>50</default>
+      <summary>Label Length</summary>
+      <description>Amount of characters to show in the label before truncating</description>
+    </key>
+
   </schema>
 </schemalist>

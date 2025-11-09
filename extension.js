@@ -86,6 +86,7 @@ const SpotifyIndicator = GObject.registerClass(
       if (!this._dbus) {
         return;
       }
+      const labelLength = this._extension._settings.get_int("label-length");
       const metadata = this._dbus.getMetadata();
 
       if (overridePosition) {
@@ -95,8 +96,8 @@ const SpotifyIndicator = GObject.registerClass(
       if (metadata.success && metadata.title) {
         const displayText = `${metadata.title}`;
         this._label.text =
-          displayText.length > 50
-            ? displayText.substring(0, 47) + "..."
+          displayText.length > labelLength
+            ? displayText.substring(0, labelLength - 3) + "..."
             : displayText;
         this._ui.update(metadata);
       } else {
@@ -196,6 +197,13 @@ export default class SpotifyExtension extends Extension {
       },
     );
 
+    this._labelLengthHandlerId = this._settings.connect(
+      "changed::label-length",
+      () => {
+        this._onLabelLengthChanged();
+      },
+    );
+
     this._watcherId = Gio.bus_watch_name(
       Gio.BusType.SESSION,
       "org.mpris.MediaPlayer2.spotify",
@@ -221,6 +229,11 @@ export default class SpotifyExtension extends Extension {
     if (this._presistSettingsHandlerId) {
       this._settings.disconnect(this._presistSettingsHandlerId);
       this._presistSettingsHandlerId = null;
+    }
+
+    if (this._labelLengthHandlerId) {
+      this._settings.disconnect(this._labelLengthHandlerId);
+      this._labelLengthHandlerId = null;
     }
 
     if (this._watcherId) {
@@ -266,6 +279,14 @@ export default class SpotifyExtension extends Extension {
         this._iconIndicator.destroy();
         this._iconIndicator = null;
       }
+    }
+  }
+
+  _onLabelLengthChanged() {
+    if (this._indicator) {
+      this._indicator.updateLabel();
+    } else {
+      logInfo("Indicator not created yet to show changes");
     }
   }
 

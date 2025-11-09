@@ -199,6 +199,24 @@ export default class GSpotifyPreferences extends ExtensionPreferences {
       Gio.SettingsBindFlags.DEFAULT,
     );
 
+    const labelLengthRow = new Adw.SpinRow({
+      title: "Label Length",
+      subtitle: "Amount of characters to show in the label before truncating",
+      adjustment: new Gtk.Adjustment({
+        lower: 0,
+        upper: 70,
+        step_increment: 1,
+        value: settings.get_int("label-length"),
+      }),
+    });
+
+    settings.bind(
+      "label-length",
+      labelLengthRow,
+      "value",
+      Gio.SettingsBindFlags.DEFAULT,
+    );
+
     const presistIndicatorRow = new Adw.SwitchRow({
       title: "Persist Indicator",
       subtitle:
@@ -234,6 +252,7 @@ export default class GSpotifyPreferences extends ExtensionPreferences {
     generalGroup.add(useArtworkColorsRow);
     generalGroup.add(volumeStepRow);
     generalGroup.add(invertScrollRow);
+    generalGroup.add(labelLengthRow);
     generalGroup.add(useFixedWidthRow);
     generalGroup.add(widthRow);
     generalGroup.add(presistIndicatorRow);
