@@ -2,6 +2,7 @@ import Gio from "gi://Gio";
 import GLib from "gi://GLib";
 
 import { logWarn } from "./utils.js";
+import { getStatsManager } from "./stats.js";
 
 const spotifyDbus = `<node>
 <interface name="org.mpris.MediaPlayer2.Player">
@@ -23,7 +24,28 @@ export class SpotifyDBus {
   constructor(panelButton) {
     this.proxy = null;
     this.panelButton = panelButton;
+    this.collectStats =
+      panelButton._extension._settings.get_boolean("collect-stats");
+
+    this._settingsChangedId = panelButton._extension._settings.connect(
+      "changed::collect-stats",
+      this._onCollectStatsChanged.bind(this),
+    );
+
+    this._lastTrackUrl = null;
+    this._lastPosition = 0;
+    this._lastUpdateTime = null;
+    this._playTimeAccumulator = 0;
+    this._playTimeInterval = null;
+
+    this._currentTrackPlayed = false;
+
     this.initProxy();
+
+    if (this.collectStats) {
+      this.stats = getStatsManager();
+      this._startPlayTimeTracking();
+    }
   }
 
   initProxy() {
@@ -43,17 +65,132 @@ export class SpotifyDBus {
         (proxy, changed, invalidated) => {
           const props = changed.deepUnpack();
           if ("Metadata" in props || "PlaybackStatus" in props) {
+            if (this.collectStats) {
+              this._handleTrackChange(props);
+            }
             this.panelButton.updateLabel();
           }
         },
       );
 
       this.proxy.connectSignal("Seeked", (proxy, sender, [position]) => {
+        this._lastPosition = position / 1000;
+        this._lastUpdateTime = Date.now();
         this.panelButton.updateLabel({ position_ms: position / 1000 });
       });
     } catch (e) {
       logWarn("Failed to create DBus proxy");
       this.proxy = null;
+    }
+  }
+
+  _handleTrackChange(props) {
+    const metadata = this.getMetadata();
+    if (!metadata.success) return;
+
+    const currentUrl = metadata.url;
+    const isPlaying = metadata.isPlaying;
+
+    if (currentUrl && currentUrl !== this._lastTrackUrl) {
+      if (this._lastTrackUrl && !this._currentTrackPlayed) {
+        this.stats.recordEvent("skip");
+      }
+
+      if (this._playTimeAccumulator > 0) {
+        this.stats.recordEvent("playtime", {
+          seconds: Math.floor(this._playTimeAccumulator / 1000),
+        });
+        this._playTimeAccumulator = 0;
+      }
+
+      this._lastTrackUrl = currentUrl;
+      this._currentTrackPlayed = false;
+      this._lastPosition = metadata.position_ms;
+      this._lastUpdateTime = Date.now();
+
+      if (metadata.title && isPlaying) {
+        this._recordTrackPlay(metadata);
+      }
+    }
+
+    if (isPlaying && !this._currentTrackPlayed && currentUrl) {
+      if (metadata.title) {
+        this._recordTrackPlay(metadata);
+      }
+    }
+  }
+
+  _recordTrackPlay(metadata) {
+    if (this._currentTrackPlayed) return;
+
+    this.stats.recordEvent("play", {
+      trackId: metadata.url,
+      title: metadata.title,
+      artist: metadata.artist,
+    });
+
+    this._currentTrackPlayed = true;
+  }
+
+  _startPlayTimeTracking() {
+    this._playTimeInterval = GLib.timeout_add_seconds(
+      GLib.PRIORITY_DEFAULT,
+      5,
+      () => {
+        this._updatePlayTime();
+        return GLib.SOURCE_CONTINUE;
+      },
+    );
+  }
+
+  _updatePlayTime() {
+    const metadata = this.getMetadata();
+    if (!metadata.success || !metadata.isPlaying) {
+      this._lastUpdateTime = null;
+      return;
+    }
+
+    const now = Date.now();
+    if (this._lastUpdateTime) {
+      const elapsed = now - this._lastUpdateTime;
+      if (elapsed > 0 && elapsed < 10000) {
+        this._playTimeAccumulator += elapsed;
+      }
+    }
+
+    this._lastUpdateTime = now;
+    this._lastPosition = metadata.position_ms;
+
+    if (this._playTimeAccumulator >= 30000) {
+      this.stats.recordEvent("playtime", {
+        seconds: Math.floor(this._playTimeAccumulator / 1000),
+      });
+      this._playTimeAccumulator = 0;
+    }
+  }
+
+  _onCollectStatsChanged() {
+    this.collectStats =
+      this.panelButton._extension._settings.get_boolean("collect-stats");
+
+    if (this.collectStats) {
+      if (!this.stats) {
+        this.stats = getStatsManager();
+      }
+      if (!this._playTimeInterval) {
+        this._startPlayTimeTracking();
+      }
+    } else {
+      if (this._playTimeInterval) {
+        GLib.Source.remove(this._playTimeInterval);
+        this._playTimeInterval = null;
+      }
+      if (this._playTimeAccumulator > 0 && this.stats) {
+        this.stats.recordEvent("playtime", {
+          seconds: Math.floor(this._playTimeAccumulator / 1000),
+        });
+        this._playTimeAccumulator = 0;
+      }
     }
   }
 
@@ -170,6 +307,14 @@ export class SpotifyDBus {
           );
           break;
         case "next":
+          // Mark current track as potentially skipped if it hasn't been played long enough
+          if (
+            this._lastTrackUrl &&
+            !this._currentTrackPlayed &&
+            this.collectStats
+          ) {
+            this.stats.recordEvent("skip");
+          }
           this.proxy.call_sync("Next", null, Gio.DBusCallFlags.NONE, -1, null);
           break;
         case "previous":
@@ -306,5 +451,23 @@ export class SpotifyDBus {
 
   decreaseVolume(step = 0.1) {
     return this.adjustVolume(-1, step);
+  }
+
+  destroy() {
+    if (this._settingsChangedId) {
+      this.panelButton._extension._settings.disconnect(this._settingsChangedId);
+      this._settingsChangedId = null;
+    }
+
+    if (this._playTimeAccumulator > 0) {
+      this.stats.recordEvent("playtime", {
+        seconds: Math.floor(this._playTimeAccumulator / 1000),
+      });
+    }
+
+    if (this._playTimeInterval) {
+      GLib.Source.remove(this._playTimeInterval);
+      this._playTimeInterval = null;
+    }
   }
 }

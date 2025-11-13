@@ -78,5 +78,11 @@
       <description>Amount of characters to show in the label before truncating</description>
     </key>
 
+    <key name="collect-stats" type="b">
+      <default>true</default>
+      <summary>Collect Stats</summary>
+      <description>Tracks songs/artists played and time spent listening. Everything is local, no data is sent.</description>
+    </key>
+
   </schema>
 </schemalist>

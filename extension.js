@@ -7,11 +7,12 @@ import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as PanelMenu from "resource:///org/gnome/shell/ui/panelMenu.js";
 import { Extension } from "resource:///org/gnome/shell/extensions/extension.js";
 
-import { SpotifyDBus } from "./dbus-parser.js";
+import { SpotifyDBus } from "./test-dbus.js";
 import { SpotifyUI } from "./spotui.js";
 import { SpotDLExecutor } from "./spotdl.js";
 import { getStatusSymbol, toggleSpotifyWindow } from "./utils.js";
 import { logInfo, logWarn, logError } from "./utils.js";
+import { destroyStatsManager } from "./stats.js";
 
 const SpotifyIndicator = GObject.registerClass(
   class SpotifyIndicator extends PanelMenu.Button {
@@ -107,7 +108,10 @@ const SpotifyIndicator = GObject.registerClass(
     }
 
     destroy() {
-      this._dbus = null;
+      if (this._dbus) {
+        this._dbus.destroy();
+        this._dbus = null;
+      }
       this._ui.destroy();
       this._ui = null;
       this._spotdl.destroy();
@@ -245,6 +249,8 @@ export default class SpotifyExtension extends Extension {
       this._indicator.destroy();
       this._indicator = null;
     }
+
+    destroyStatsManager();
 
     if (this._iconIndicator) {
       this._iconIndicator.destroy();
