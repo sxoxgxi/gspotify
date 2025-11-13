@@ -7,7 +7,7 @@ import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as PanelMenu from "resource:///org/gnome/shell/ui/panelMenu.js";
 import { Extension } from "resource:///org/gnome/shell/extensions/extension.js";
 
-import { SpotifyDBus } from "./test-dbus.js";
+import { SpotifyDBus } from "./dbus-parser.js";
 import { SpotifyUI } from "./spotui.js";
 import { SpotDLExecutor } from "./spotdl.js";
 import { getStatusSymbol, toggleSpotifyWindow } from "./utils.js";
