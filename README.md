@@ -13,6 +13,7 @@ It is designed to be theme-aware, and customizable\*
 - **Playback Controls**: Play, pause, skip, previous and volume control.
 - **Progress Bar**: Live track progress indicator with dynamic accent color.
 - **Theme-Aware Colors**: Colors adapt based on the dominant album art color.
+- **Local Statistics**: Keep track of your listening habits.
 
 ---
 
