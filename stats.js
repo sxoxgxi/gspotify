@@ -1,7 +1,7 @@
 import Gio from "gi://Gio";
 import GLib from "gi://GLib";
 
-import { logError, logInfo } from "./utils";
+import { logError, logInfo } from "./utils.js";
 
 const CONFIG_DIR = GLib.build_filenamev([
   GLib.get_user_config_dir(),
