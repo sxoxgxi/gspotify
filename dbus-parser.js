@@ -33,6 +33,9 @@ export class SpotifyDBus {
     );
 
     this._lastTrackUrl = null;
+    this._lastTitle = "";
+    this._lastArtist = "";
+    this._lastDuration = 0;
     this._lastPosition = 0;
     this._lastUpdateTime = null;
     this._playTimeAccumulator = 0;
@@ -83,46 +86,45 @@ export class SpotifyDBus {
       this.proxy = null;
     }
   }
-
   _handleTrackChange(props) {
     const metadata = this.getMetadata();
-    if (!metadata.success) return;
 
+    if (!metadata.success) return;
     const currentUrl = metadata.url;
-    const isPlaying = metadata.isPlaying;
 
     if (currentUrl && currentUrl !== this._lastTrackUrl) {
-      if (this._lastTrackUrl && !this._currentTrackPlayed) {
-        this.stats.recordEvent("skip");
-      }
-
-      if (this._playTimeAccumulator > 0) {
-        this.stats.recordEvent("playtime", {
-          seconds: Math.floor(this._playTimeAccumulator / 1000),
-        });
-        this._playTimeAccumulator = 0;
+      if (this._lastTrackUrl) {
+        const wasCompleted = this._lastPosition >= this._lastDuration - 5000;
+        if (wasCompleted && !this._currentTrackPlayed) {
+          this.stats.recordEvent("play", {
+            trackId: this._lastTrackUrl,
+            title: this._lastTitle,
+            artist: this._lastArtist,
+          });
+          this._currentTrackPlayed = true;
+        }
+        if (!this._currentTrackPlayed) {
+          this.stats.recordEvent("skip");
+        }
+        if (this._playTimeAccumulator > 0) {
+          this.stats.recordEvent("playtime", {
+            seconds: Math.floor(this._playTimeAccumulator / 1000),
+          });
+          this._playTimeAccumulator = 0;
+        }
       }
 
       this._lastTrackUrl = currentUrl;
+      this._lastTitle = metadata.title;
+      this._lastArtist = metadata.artist;
+      this._lastDuration = metadata.duration_ms;
       this._currentTrackPlayed = false;
       this._lastPosition = metadata.position_ms;
       this._lastUpdateTime = Date.now();
-
-      if (metadata.title && isPlaying) {
-        this._recordTrackPlay(metadata);
-      }
-    }
-
-    if (isPlaying && !this._currentTrackPlayed && currentUrl) {
-      if (metadata.title) {
-        this._recordTrackPlay(metadata);
-      }
     }
   }
 
   _recordTrackPlay(metadata) {
-    if (this._currentTrackPlayed) return;
-
     this.stats.recordEvent("play", {
       trackId: metadata.url,
       title: metadata.title,
@@ -160,6 +162,9 @@ export class SpotifyDBus {
 
     this._lastUpdateTime = now;
     this._lastPosition = metadata.position_ms;
+    if (this._playTimeAccumulator >= 30000 && !this._currentTrackPlayed) {
+      this._recordTrackPlay(metadata);
+    }
 
     if (this._playTimeAccumulator >= 30000) {
       this.stats.recordEvent("playtime", {
@@ -307,14 +312,6 @@ export class SpotifyDBus {
           );
           break;
         case "next":
-          // Mark current track as potentially skipped if it hasn't been played long enough
-          if (
-            this._lastTrackUrl &&
-            !this._currentTrackPlayed &&
-            this.collectStats
-          ) {
-            this.stats.recordEvent("skip");
-          }
           this.proxy.call_sync("Next", null, Gio.DBusCallFlags.NONE, -1, null);
           break;
         case "previous":

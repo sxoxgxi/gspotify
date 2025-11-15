@@ -28,10 +28,14 @@ export function buildStatsPage(window, settings) {
   });
   const stats = statsManager.getData();
 
+  const monthString = new Date().toLocaleString("default", {
+    month: "long",
+  });
+
   // Overview Group
   const overviewGroup = new Adw.PreferencesGroup({
     title: "Overview",
-    description: "Your listening statistics",
+    description: `Your listening statistics for ${monthString}`,
   });
   statsPage.add(overviewGroup);
   const tracksPlayedRow = new Adw.ActionRow({
@@ -54,7 +58,7 @@ export function buildStatsPage(window, settings) {
   if (stats.top.artists.length > 0) {
     const topArtistsGroup = new Adw.PreferencesGroup({
       title: "Top Artists",
-      description: "Your most played artists",
+      description: "Your most played artists this month",
     });
     statsPage.add(topArtistsGroup);
     stats.top.artists.slice(0, 10).forEach((artist, index) => {
@@ -70,7 +74,7 @@ export function buildStatsPage(window, settings) {
   if (stats.top.tracks.length > 0) {
     const topTracksGroup = new Adw.PreferencesGroup({
       title: "Top Tracks",
-      description: "Your most played tracks",
+      description: "Your most played tracks this month",
     });
     statsPage.add(topTracksGroup);
     stats.top.tracks.slice(0, 10).forEach((track, index) => {

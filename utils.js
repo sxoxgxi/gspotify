@@ -90,7 +90,3 @@ export function logWarn(...args) {
 export function logError(...args) {
   console.error(`${EXTENSION_TAG}`, ...args);
 }
-
-export function logDebug(...args) {
-  console.debug(`${EXTENSION_TAG}`, ...args);
-}

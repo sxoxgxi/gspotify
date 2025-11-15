@@ -109,7 +109,7 @@ export function buildDonatePage(window, extensionPath) {
 
       const dialog = new Adw.MessageDialog({
         transient_for: window,
-        heading: `${don.coin} QR Code`,
+        heading: don.coin,
         body: `Scan this QR to donate using ${don.symbol}.`,
       });
 

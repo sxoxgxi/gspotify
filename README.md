@@ -1,4 +1,7 @@
-# 🎵 GSpotify - GNOME Shell Extension
+<div style="display: flex; align-items: center;">
+  <img src="./icons/gspotify-logo.svg" alt="Logo" width="100" height="200">
+  <h1>GSpotify - GNOME Shell Extension</h1>
+</div>
 
 GSpotify is a GNOME Shell extension that integrates with the Spotify MPRIS interface to display current track information, album art, and playback controls directly in your top panel.
 
@@ -27,8 +30,8 @@ It is designed to be theme-aware, and customizable\*
 
 - [x] Shuffle and repeat buttons if available.
 - [x] Add support for track downloading.
+- [x] Local Statistics.
 - [ ] Synced and Plain Lyrics.
-- [ ] Local Favorites.
 
 ---
 
