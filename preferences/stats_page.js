@@ -27,63 +27,75 @@ export function buildStatsPage(window, settings) {
     icon_name: "view-list-symbolic",
   });
   const stats = statsManager.getData();
+  const total_played = stats.totals.tracks_played;
 
   const monthString = new Date().toLocaleString("default", {
     month: "long",
   });
 
-  // Overview Group
-  const overviewGroup = new Adw.PreferencesGroup({
-    title: "Overview",
-    description: `Your listening statistics for ${monthString}`,
-  });
-  statsPage.add(overviewGroup);
-  const tracksPlayedRow = new Adw.ActionRow({
-    title: "Tracks Played",
-    subtitle: stats.totals.tracks_played.toString(),
-  });
-  overviewGroup.add(tracksPlayedRow);
-  const tracksSkippedRow = new Adw.ActionRow({
-    title: "Tracks Skipped",
-    subtitle: stats.totals.tracks_skipped.toString(),
-  });
-  overviewGroup.add(tracksSkippedRow);
-  const playTimeRow = new Adw.ActionRow({
-    title: "Total Play Time",
-    subtitle: formatDuration(stats.totals.play_time_seconds),
-  });
-  overviewGroup.add(playTimeRow);
-
-  // Top Artists Group
-  if (stats.top.artists.length > 0) {
-    const topArtistsGroup = new Adw.PreferencesGroup({
-      title: "Top Artists",
-      description: "Your most played artists this month",
+  if (total_played === 0) {
+    const noStatsGroup = new Adw.PreferencesGroup({
+      title: "No Stats Available",
+      description:
+        "You have not played any tracks yet this month - play some and come back!",
     });
-    statsPage.add(topArtistsGroup);
-    stats.top.artists.slice(0, 10).forEach((artist, index) => {
-      const artistRow = new Adw.ActionRow({
-        title: `${index + 1}. ${artist.name}`,
-        subtitle: `${artist.count} plays`,
-      });
-      topArtistsGroup.add(artistRow);
-    });
+    statsPage.add(noStatsGroup);
   }
 
-  // Top Tracks Group
-  if (stats.top.tracks.length > 0) {
-    const topTracksGroup = new Adw.PreferencesGroup({
-      title: "Top Tracks",
-      description: "Your most played tracks this month",
+  if (total_played > 0) {
+    // Overview Group
+    const overviewGroup = new Adw.PreferencesGroup({
+      title: "Overview",
+      description: `Your listening statistics for ${monthString}`,
     });
-    statsPage.add(topTracksGroup);
-    stats.top.tracks.slice(0, 10).forEach((track, index) => {
-      const trackRow = new Adw.ActionRow({
-        title: `${index + 1}. ${track.title}`,
-        subtitle: `${track.artist} • ${track.count} plays`,
+    statsPage.add(overviewGroup);
+    const tracksPlayedRow = new Adw.ActionRow({
+      title: "Tracks Played",
+      subtitle: stats.totals.tracks_played.toString(),
+    });
+    overviewGroup.add(tracksPlayedRow);
+    const tracksSkippedRow = new Adw.ActionRow({
+      title: "Tracks Skipped",
+      subtitle: `${stats.totals.tracks_skipped.toString()} tracks or ${Math.round((stats.totals.tracks_skipped / stats.totals.tracks_played) * 100)}% of plays were skipped`,
+    });
+    overviewGroup.add(tracksSkippedRow);
+    const playTimeRow = new Adw.ActionRow({
+      title: "Total Play Time",
+      subtitle: formatDuration(stats.totals.play_time_seconds),
+    });
+    overviewGroup.add(playTimeRow);
+
+    // Top Artists Group
+    if (stats.top.artists.length > 0) {
+      const topArtistsGroup = new Adw.PreferencesGroup({
+        title: "Top Artists",
+        description: "Your most played artists this month",
       });
-      topTracksGroup.add(trackRow);
-    });
+      statsPage.add(topArtistsGroup);
+      stats.top.artists.slice(0, 10).forEach((artist, index) => {
+        const artistRow = new Adw.ActionRow({
+          title: `${index + 1}. ${artist.name}`,
+          subtitle: `${artist.count} plays`,
+        });
+        topArtistsGroup.add(artistRow);
+      });
+    }
+
+    // Top Tracks Group
+    if (stats.top.tracks.length > 0) {
+      const topTracksGroup = new Adw.PreferencesGroup({
+        title: "Top Tracks",
+        description: "Your most played tracks this month",
+      });
+      statsPage.add(topTracksGroup);
+      stats.top.tracks.slice(0, 10).forEach((track, index) => {
+        const trackRow = new Adw.ActionRow({
+          title: `${index + 1}. ${track.title}`,
+          subtitle: `${track.artist} • ${track.count} plays`,
+        });
+        topTracksGroup.add(trackRow);
+      });
+    }
   }
 
   // Metadata Group
