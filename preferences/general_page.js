@@ -272,10 +272,21 @@ export function buildGeneralPage(window, settings, metadata) {
       if (success && status === 0 && stdout.length > 0) {
         const spotdlVersion = new TextDecoder().decode(stdout).trim();
         spotDLRow.subtitle = `Found SpotDL v${spotdlVersion}`;
+
+        const dialog = new Adw.Toast({
+          title: `Found SpotDL v${spotdlVersion}`,
+        });
+        window.add_toast(dialog);
       }
     } catch {
       spotDLRow.subtitle =
         "SpotDL not found - Open spotdl's site for installation";
+
+      const dialog = new Adw.Toast({
+        title: "SpotDL not found - Open spotdl's site for installation",
+      });
+      window.add_toast(dialog);
+
       spotDLRow.add_suffix(openSpotDLsiteButton);
     }
   });
