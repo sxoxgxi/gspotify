@@ -3,6 +3,7 @@ import { ExtensionPreferences } from "resource:///org/gnome/Shell/Extensions/js/
 import { buildGeneralPage } from "./preferences/general_page.js";
 import { buildStatsPage } from "./preferences/stats_page.js";
 import { buildDonatePage } from "./preferences/donation_page.js";
+import { buildSpotifyPage } from "./preferences/spotify_page.js";
 
 export default class GSpotifyPreferences extends ExtensionPreferences {
   fillPreferencesWindow(window) {
@@ -11,6 +12,8 @@ export default class GSpotifyPreferences extends ExtensionPreferences {
     window.add(generalPage);
     const statsPage = buildStatsPage(window, settings);
     window.add(statsPage);
+    const spotifyPage = buildSpotifyPage(window, this.path);
+    window.add(spotifyPage);
     const donatePage = buildDonatePage(window, this.path);
     window.add(donatePage);
   }

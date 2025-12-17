@@ -257,11 +257,13 @@ export function buildGeneralPage(window, settings, metadata) {
   downloadFolderRow.add_suffix(fileChooserButton);
   downloadFolderRow.add_prefix(openDirectoryButton);
   downloadFolderRow.activatable_widget = fileChooserButton;
+
   const spotDLRow = new Adw.ActionRow({
     title: "SpotDL",
     subtitle: "Check if SpotDL is installed",
     activatable: true,
   });
+
   const openSpotDLsiteButton = createOpenURLButton(
     "https://github.com/spotDL/spotify-downloader",
   );

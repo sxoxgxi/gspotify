@@ -1,3 +1,5 @@
+import GLib from "gi://GLib";
+
 const EXTENSION_TAG = "[GSpotify]";
 
 export function getStatusSymbol(outputText) {
@@ -89,4 +91,18 @@ export function logWarn(...args) {
 
 export function logError(...args) {
   console.error(`${EXTENSION_TAG}`, ...args);
+}
+
+function encodeURIComponent(str) {
+  return GLib.uri_escape_string(str, null, false);
+}
+
+export function buildQueryString(params) {
+  const parts = [];
+  for (const [key, value] of Object.entries(params)) {
+    const encodedKey = encodeURIComponent(key);
+    const encodedValue = encodeURIComponent(value);
+    parts.push(`${encodedKey}=${encodedValue}`);
+  }
+  return parts.join("&");
 }
