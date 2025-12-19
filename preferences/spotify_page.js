@@ -1,6 +1,7 @@
 import Adw from "gi://Adw";
 import Gtk from "gi://Gtk";
 
+import { getSpotifyUsername } from "../spotify-helper.js";
 import {
   storeRefreshToken,
   generatePKCE,
@@ -9,10 +10,9 @@ import {
   startCallbackServer,
   getRefreshToken,
   deleteRefreshToken,
-  getAccessTokenFromRefresh,
+  getValidAccessToken,
+  clearAccessToken,
 } from "../spotify-auth.js";
-
-import { getSpotifyUsername } from "../spotify-helper.js";
 
 export function buildSpotifyPage(window, extensionPath) {
   const spotifyPage = new Adw.PreferencesPage({
@@ -162,6 +162,7 @@ export function buildSpotifyPage(window, extensionPath) {
       if (response === "disconnect") {
         try {
           await deleteRefreshToken();
+          await clearAccessToken();
           updateConnectionStatus();
         } catch (e) {
           const errorDialog = new Adw.MessageDialog({
@@ -185,12 +186,7 @@ export function buildSpotifyPage(window, extensionPath) {
     testRow.set_subtitle("Testing connection...");
 
     try {
-      const refreshToken = await getRefreshToken();
-      if (!refreshToken) {
-        throw new Error("No refresh token found");
-      }
-
-      const accessToken = await getAccessTokenFromRefresh(refreshToken);
+      const accessToken = await getValidAccessToken();
       const username = await getSpotifyUsername(accessToken);
 
       testRow.set_subtitle(`✓ Connected as ${username}`);

@@ -9,6 +9,11 @@ const CLIENT_ID = "48fee64225164274a00562eff58100b5";
 const PORT = 9000;
 const REDIRECT_URI = `http://127.0.0.1:${PORT}/callback`;
 
+let tokenCache = {
+  accessToken: null,
+  expiresAt: null,
+};
+
 export function generatePKCE() {
   const verifierBytes = new Uint8Array(32);
   for (let i = 0; i < 32; i++) {
@@ -63,7 +68,7 @@ export function startCallbackServer(onCode) {
       onCode(match[1]);
     }
     const output = connection.get_output_stream();
-    const responseText = `HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<h2>You can close this window.</h2>`;
+    const responseText = `HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<h2>Gspotify: You can close this window.</h2>`;
     const responseBytes = new TextEncoder().encode(responseText);
     output.write_all(responseBytes, null);
     connection.close(null);
@@ -191,7 +196,124 @@ export function deleteRefreshToken() {
   });
 }
 
-export async function getAccessTokenFromRefresh(refreshToken) {
+const ACCESS_TOKEN_SCHEMA = new Secret.Schema(
+  "io.github.gspotify.access",
+  Secret.SchemaFlags.NONE,
+  {
+    access_token: Secret.SchemaAttributeType.STRING,
+  },
+);
+
+export function storeAccessToken(token, expiresIn) {
+  tokenCache.accessToken = token;
+  tokenCache.expiresAt = Date.now() + (expiresIn - 60) * 1000;
+
+  return new Promise((resolve, reject) => {
+    const tokenData = JSON.stringify({
+      token,
+      expiresAt: tokenCache.expiresAt,
+    });
+
+    Secret.password_store(
+      ACCESS_TOKEN_SCHEMA,
+      { access_token: "spotify" },
+      Secret.COLLECTION_DEFAULT,
+      "GSpotify Spotify Access Token",
+      tokenData,
+      null,
+      (source, result) => {
+        try {
+          const success = Secret.password_store_finish(result);
+          resolve(success);
+        } catch (e) {
+          reject(e);
+        }
+      },
+    );
+  });
+}
+
+export function getStoredAccessToken() {
+  return new Promise((resolve, reject) => {
+    Secret.password_lookup(
+      ACCESS_TOKEN_SCHEMA,
+      { access_token: "spotify" },
+      null,
+      (source, result) => {
+        try {
+          const password = Secret.password_lookup_finish(result);
+          if (password) {
+            const data = JSON.parse(password);
+            if (data.expiresAt && Date.now() < data.expiresAt) {
+              tokenCache.accessToken = data.token;
+              tokenCache.expiresAt = data.expiresAt;
+              resolve(data.token);
+            } else {
+              resolve(null);
+            }
+          } else {
+            resolve(null);
+          }
+        } catch (e) {
+          resolve(null);
+        }
+      },
+    );
+  });
+}
+
+export function clearAccessToken() {
+  tokenCache.accessToken = null;
+  tokenCache.expiresAt = null;
+
+  return new Promise((resolve, reject) => {
+    Secret.password_clear(
+      ACCESS_TOKEN_SCHEMA,
+      { access_token: "spotify" },
+      null,
+      (source, result) => {
+        try {
+          const success = Secret.password_clear_finish(result);
+          resolve(success);
+        } catch (e) {
+          reject(e);
+        }
+      },
+    );
+  });
+}
+
+export async function getValidAccessToken() {
+  if (
+    tokenCache.accessToken &&
+    tokenCache.expiresAt &&
+    Date.now() < tokenCache.expiresAt
+  ) {
+    return tokenCache.accessToken;
+  }
+
+  const storedToken = await getStoredAccessToken();
+  if (storedToken) {
+    return storedToken;
+  }
+
+  const refreshToken = await getRefreshToken();
+  if (!refreshToken) {
+    throw new Error("No refresh token found");
+  }
+
+  const tokenData = await getAccessTokenFromRefresh(refreshToken);
+
+  await storeAccessToken(tokenData.access_token, tokenData.expires_in || 3600);
+
+  if (tokenData.refresh_token && tokenData.refresh_token !== refreshToken) {
+    await storeRefreshToken(tokenData.refresh_token);
+  }
+
+  return tokenData.access_token;
+}
+
+async function getAccessTokenFromRefresh(refreshToken) {
   const session = new Soup.Session();
   const msg = Soup.Message.new(
     "POST",
@@ -221,5 +343,12 @@ export async function getAccessTokenFromRefresh(refreshToken) {
   });
 
   const data = JSON.parse(new TextDecoder().decode(response.get_data()));
-  return data.access_token;
+
+  if (data.error) {
+    throw new Error(
+      `Spotify API error: ${data.error} - ${data.error_description || ""}`,
+    );
+  }
+
+  return data;
 }

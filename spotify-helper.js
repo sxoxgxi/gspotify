@@ -1,9 +1,11 @@
 import Soup from "gi://Soup?version=3.0";
 import GLib from "gi://GLib";
 
+const API_ENDPOINT = "https://api.spotify.com/v1";
+
 export async function getSpotifyUsername(accessToken) {
   const session = new Soup.Session();
-  const msg = Soup.Message.new("GET", "https://api.spotify.com/v1/me");
+  const msg = Soup.Message.new("GET", `${API_ENDPOINT}/me`);
 
   msg.get_request_headers().append("Authorization", `Bearer ${accessToken}`);
 
