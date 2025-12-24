@@ -3,11 +3,11 @@ import Clutter from "gi://Clutter";
 import Gio from "gi://Gio";
 import GLib from "gi://GLib";
 import GdkPixbuf from "gi://GdkPixbuf";
-import * as Main from "resource:///org/gnome/shell/ui/main.js";
-import * as MessageTray from "resource:///org/gnome/shell/ui/messageTray.js";
 
 import { INFO_TIPS } from "./constants.js";
-import { toggleSpotifyWindow, logWarn } from "./utils.js";
+import { toggleSpotifyWindow, logWarn, logInfo } from "./utils.js";
+import { toggleLike, isTrackLiked } from "./spotify-helper.js";
+import { getValidAccessToken } from "./spotify-auth.js";
 
 export class SpotifyUI {
   constructor(indicator, extension, onColorUpdate = null) {
@@ -20,12 +20,14 @@ export class SpotifyUI {
     this._currentArtworkUrl = null;
     this._isPlaying = false;
     this._progressTimeout = null;
-    this._statusTimeout = null;
     this._lastUpdateTime = null;
     this._currentPosition = 0;
     this._duration = 0;
-    this._notificationSource = null;
     this._shuffleState = false;
+    this._currentTrackId = null;
+    this._isLiked = false;
+    this._isSpotifyConnected = false;
+
     this.useFixedWidth = extension._settings.get_boolean("use-fixed-width");
     this.fixedWidth = extension._settings.get_int("ui-width");
 
@@ -239,20 +241,54 @@ export class SpotifyUI {
 
     this.container.add_child(this._additionalControls);
 
-    this._buildShuffleButton();
-    this._buildSpotifyToggleButton();
+    this._controls = {
+      shuffle: this._buildShuffleButton(),
+      spotify: this._buildSpotifyToggleButton(),
+      spacer: this._buildSpacerLabel(),
+      download: this._buildDownloadButton(),
+      settings: this._buildSettingsButton(),
+      like: this._buildLikeButton(),
+    };
 
-    this._statusLabel = new St.Label({
+    this._rebuildAdditionalControls();
+
+    this._controlsOrderChangedId = this._settings.connect(
+      "changed::additional-controls-order",
+      () => {
+        this._rebuildAdditionalControls();
+      },
+    );
+  }
+
+  _rebuildAdditionalControls() {
+    this._additionalControls.remove_all_children();
+
+    const order = this._settings.get_strv("additional-controls-order") || [
+      "shuffle",
+      "toggle",
+      "spacer",
+      "download",
+      "settings",
+    ];
+
+    for (const key of order) {
+      const actor = this._controls[key];
+      if (actor) {
+        this._additionalControls.add_child(actor);
+      }
+    }
+  }
+
+  _buildSpacerLabel() {
+    this._spacerLabel = new St.Label({
       text: "",
-      style_class: "spotify-status-label",
+      style_class: "spotify-spacer-label",
       x_align: Clutter.ActorAlign.CENTER,
       y_align: Clutter.ActorAlign.CENTER,
       x_expand: true,
     });
-    this._additionalControls.add_child(this._statusLabel);
 
-    this._buildDownloadButton();
-    this._buildSettingsButton();
+    return this._spacerLabel;
   }
 
   _buildShuffleButton() {
@@ -265,7 +301,7 @@ export class SpotifyUI {
     });
 
     this._shuffleButton.connect("clicked", () => this._updateShuffleState());
-    this._additionalControls.add_child(this._shuffleButton);
+    return this._shuffleButton;
   }
 
   _buildSpotifyToggleButton() {
@@ -278,7 +314,7 @@ export class SpotifyUI {
     });
 
     this._spotifyToggleButton.connect("clicked", () => toggleSpotifyWindow());
-    this._additionalControls.add_child(this._spotifyToggleButton);
+    return this._spotifyToggleButton;
   }
 
   _buildSettingsButton() {
@@ -295,7 +331,7 @@ export class SpotifyUI {
       this._extension.openPreferences();
     });
 
-    this._additionalControls.add_child(this._settingsButton);
+    return this._settingsButton;
   }
 
   _buildDownloadButton() {
@@ -309,7 +345,99 @@ export class SpotifyUI {
     this._downloadButton.connect("clicked", () => {
       this._extension.downloadTrack();
     });
-    this._additionalControls.add_child(this._downloadButton);
+
+    return this._downloadButton;
+  }
+
+  _buildLikeButton() {
+    this._likeButton = new St.Button({
+      style_class: "spotify-button-secondary",
+      child: new St.Icon({
+        gicon: Gio.Icon.new_for_string(
+          `${this._extension.path}/icons/heart-outline-thin-symbolic.svg`,
+        ),
+        icon_size: 20,
+      }),
+    });
+
+    this._likeButton.connect("clicked", () => {
+      this._onLikeButtonClicked();
+    });
+    return this._likeButton;
+  }
+
+  async _checkSpotifyConnection() {
+    try {
+      const accessToken = await getValidAccessToken();
+      this._isSpotifyConnected = accessToken && accessToken.length > 0;
+    } catch (e) {
+      this._isSpotifyConnected = false;
+    }
+  }
+
+  async _onLikeButtonClicked() {
+    logInfo("Spotify Connection Status:", this._isSpotifyConnected);
+    if (!this._isSpotifyConnected) {
+      this._extension.sendOSDMessage(
+        "Connect Spotify account from extension's setting to like songs",
+        "dialog-warning-symbolic",
+      );
+    }
+
+    if (!this._currentTrackId) {
+      this._extension.sendOSDMessage(
+        "No track playing",
+        "dialog-error-symbolic",
+      );
+      return;
+    }
+
+    try {
+      this._likeButton.reactive = false;
+      const newLikedState = await toggleLike(this._currentTrackId);
+      this._isLiked = newLikedState;
+      this._updateLikeButtonIcon();
+
+      const message = newLikedState
+        ? "Added to Liked Songs"
+        : "Removed from Liked Songs";
+      const icon = newLikedState
+        ? "emote-love-symbolic"
+        : "list-remove-symbolic";
+      this._extension.sendOSDMessage(message, icon);
+    } catch (e) {
+      logWarn("Failed to toggle like state:", e);
+      this._isSpotifyConnected = false;
+      this._extension.sendOSDMessage(
+        "Spotify authentication expired. Reconnect in settings",
+        "dialog-error-symbolic",
+      );
+    } finally {
+      this._likeButton.reactive = true;
+    }
+  }
+
+  _updateLikeButtonIcon() {
+    const iconPath = this._isLiked
+      ? "emote-love-symbolic"
+      : `${this._extension.path}/icons/heart-outline-thin-symbolic.svg`;
+
+    this._likeButton.child.gicon = Gio.Icon.new_for_string(iconPath);
+
+    if (this._readableTextColor) {
+      this._likeButton.style = `color: ${this._readableTextColor};`;
+    }
+  }
+
+  _extractTrackIdFromUrl(url) {
+    if (!url) return null;
+
+    if (url.startsWith("spotify:track:")) {
+      return url.split(":")[2];
+    }
+
+    const match = url.match(/spotify\.com\/track\/([a-zA-Z0-9]+)/);
+    return match ? match[1] : null;
   }
 
   _onPlayPause() {
@@ -353,7 +481,7 @@ export class SpotifyUI {
     }
   }
 
-  update(metadata) {
+  async update(metadata) {
     if (!metadata?.success) return;
 
     this._updateText(metadata);
@@ -363,34 +491,56 @@ export class SpotifyUI {
     this._shuffleState = metadata.shuffle;
     this._updateShuffleButton();
 
+    if (metadata.url) {
+      const trackId = this._extractTrackIdFromUrl(metadata.url);
+      if (trackId && trackId !== this._currentTrackId) {
+        this._currentTrackId = trackId;
+        await this._checkLikeStatus();
+      }
+    } else {
+      this._currentTrackId = null;
+      this._isLiked = false;
+      this._updateLikeButtonIcon();
+    }
+
     this._infoBox.connect("button-press-event", () => {
-      this._stopStatusUpdate();
       if (metadata.url) {
         const clipboard = St.Clipboard.get_default();
         clipboard.set_text(St.ClipboardType.CLIPBOARD, metadata.url);
-        this._statusLabel.text = "Copied Track URL!";
-        this._statusTimeout = GLib.timeout_add(
-          GLib.PRIORITY_DEFAULT,
-          1500,
-          () => {
-            this._statusLabel.text = "";
-            this._statusTimeout = null;
-            return GLib.SOURCE_REMOVE;
-          },
+        this._extension.sendOSDMessage(
+          "Copied Spotify URL for " + metadata.title,
+          "edit-copy-symbolic",
         );
       } else {
-        this._statusLabel.text = "Copying Failed!";
-        this._statusTimeout = GLib.timeout_add(
-          GLib.PRIORITY_DEFAULT,
-          1500,
-          () => {
-            this._statusLabel.text = "";
-            this._statusTimeout = null;
-            return GLib.SOURCE_REMOVE;
-          },
+        this._extension.sendOSDMessage(
+          "URL Not Found for " + metadata.title,
+          "edit-copy-symbolic",
         );
       }
     });
+  }
+
+  async _checkLikeStatus() {
+    if (!this._currentTrackId) {
+      return;
+    }
+
+    if (!this._isSpotifyConnected) {
+      this._isLiked = false;
+      this._updateLikeButtonIcon();
+      return;
+    }
+
+    try {
+      this._isLiked = await isTrackLiked(this._currentTrackId);
+      this._updateLikeButtonIcon();
+    } catch (e) {
+      logWarn("Failed to check like status:", e);
+
+      this._isSpotifyConnected = false;
+      this._isLiked = false;
+      this._updateLikeButtonIcon();
+    }
   }
 
   _updateShuffleState() {
@@ -475,13 +625,6 @@ export class SpotifyUI {
     if (this._progressTimeout) {
       GLib.Source.remove(this._progressTimeout);
       this._progressTimeout = null;
-    }
-  }
-
-  _stopStatusUpdate() {
-    if (this._statusTimeout) {
-      GLib.Source.remove(this._statusTimeout);
-      this._statusTimeout = null;
     }
   }
 
@@ -681,10 +824,10 @@ export class SpotifyUI {
     this._settingsButton.style = `color: ${readableTextColor};`;
     this._downloadButton.style = `color: ${readableTextColor};`;
     this._spotifyToggleButton.style = `color: ${readableTextColor};`;
+    this._likeButton.style = `color: ${readableTextColor};`;
 
     this._titleLabel.style = `color: ${readableTextColor};`;
     this._artistLabel.style = `color: ${readableTextColor};`;
-    this._statusLabel.style = `color: ${readableTextColor};`;
     this._overlayIcon.style = `color: ${readableTextColor};`;
 
     if (this._onColorUpdate) {
@@ -695,29 +838,6 @@ export class SpotifyUI {
   _getReadableTextColor(bgColor) {
     const lum = (c) => (0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b) / 255;
     return lum(bgColor) < 0.5 ? "#FFFFFF" : "#000000";
-  }
-
-  // For Future Use
-  _ensureNotificationSource() {
-    if (!this._notificationSource) {
-      this._notificationSource = new MessageTray.Source({
-        title: "GSpotify",
-        iconName: "media-playback-start-symbolic",
-      });
-      Main.messageTray.add(this._notificationSource);
-    }
-    return this._notificationSource;
-  }
-
-  _showNotification(title, message) {
-    const source = this._ensureNotificationSource();
-    const notification = new MessageTray.Notification({
-      source: source,
-      title: title,
-      body: message,
-      isTransient: true,
-    });
-    source.addNotification(notification);
   }
 
   _onWidthSettingsChanged() {
@@ -746,7 +866,11 @@ export class SpotifyUI {
 
   destroy() {
     this._stopProgressUpdate();
-    this._stopStatusUpdate();
+
+    if (this._controlsOrderChangedId) {
+      this._settings.disconnect(this._controlsOrderChangedId);
+      this._controlsOrderChangedId = null;
+    }
 
     if (this._widthChangedId) {
       this._settings.disconnect(this._widthChangedId);
@@ -756,11 +880,6 @@ export class SpotifyUI {
     if (this._useFixedWidthChangedId) {
       this._settings.disconnect(this._useFixedWidthChangedId);
       this._useFixedWidthChangedId = null;
-    }
-
-    if (this._notificationSource) {
-      this._notificationSource.destroy();
-      this._notificationSource = null;
     }
   }
 }

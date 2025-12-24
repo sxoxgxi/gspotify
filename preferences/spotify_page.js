@@ -10,7 +10,6 @@ import {
   startCallbackServer,
   getRefreshToken,
   deleteRefreshToken,
-  getValidAccessToken,
   clearAccessToken,
 } from "../spotify-auth.js";
 
@@ -186,8 +185,7 @@ export function buildSpotifyPage(window, extensionPath) {
     testRow.set_subtitle("Testing connection...");
 
     try {
-      const accessToken = await getValidAccessToken();
-      const username = await getSpotifyUsername(accessToken);
+      const username = await getSpotifyUsername();
 
       testRow.set_subtitle(`✓ Connected as ${username}`);
 

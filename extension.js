@@ -5,6 +5,7 @@ import GLib from "gi://GLib";
 import Gio from "gi://Gio";
 import * as Main from "resource:///org/gnome/shell/ui/main.js";
 import * as PanelMenu from "resource:///org/gnome/shell/ui/panelMenu.js";
+import * as Config from "resource:///org/gnome/shell/misc/config.js";
 import { Extension } from "resource:///org/gnome/shell/extensions/extension.js";
 
 import { SpotifyDBus } from "./dbus-parser.js";
@@ -13,6 +14,8 @@ import { SpotDLExecutor } from "./spotdl.js";
 import { getStatusSymbol, toggleSpotifyWindow } from "./utils.js";
 import { logInfo, logWarn, logError } from "./utils.js";
 import { destroyStatsManager } from "./stats.js";
+
+const SHELL_VERSION = parseFloat(Config.PACKAGE_VERSION);
 
 const SpotifyIndicator = GObject.registerClass(
   class SpotifyIndicator extends PanelMenu.Button {
@@ -100,6 +103,8 @@ const SpotifyIndicator = GObject.registerClass(
           displayText.length > labelLength
             ? displayText.substring(0, labelLength - 3) + "..."
             : displayText;
+
+        this._ui._checkSpotifyConnection();
         this._ui.update(metadata);
       } else {
         this._label.text = "Spotify";
@@ -449,6 +454,24 @@ export default class SpotifyExtension extends Extension {
       }
       return GLib.SOURCE_CONTINUE;
     });
+  }
+
+  sendOSDMessage(message, iconName) {
+    const icon = this.getIconByName(iconName);
+    if (SHELL_VERSION >= 49) {
+      Main.osdWindowManager.showAll(icon, message, null, null);
+    } else {
+      Main.osdWindowManager.show(-1, icon, message, null, null);
+    }
+  }
+
+  getIconByName(name) {
+    let icon = Gio.Icon.new_for_string(name);
+    if (icon) {
+      return icon;
+    }
+    logError(`Icon ${name} not found`);
+    return null;
   }
 
   _clearMinimizeTimeout() {

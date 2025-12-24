@@ -85,7 +85,7 @@ export function openSpotifyAuth(challenge) {
     redirect_uri: REDIRECT_URI,
     code_challenge_method: "S256",
     code_challenge: challenge,
-    scope: "",
+    scope: "user-library-read user-library-modify",
   };
   const queryString = buildQueryString(params);
   const url = `https://accounts.spotify.com/authorize?${queryString}`;

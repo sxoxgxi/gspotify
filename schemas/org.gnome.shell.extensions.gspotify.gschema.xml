@@ -84,5 +84,14 @@
       <description>Tracks songs/artists played and time spent listening. Everything is local, no data is sent.</description>
     </key>
 
+    
+    <key name="additional-controls-order" type="as">
+      <default>
+        ['shuffle', 'like', 'spacer', 'download', 'spotify']
+      </default>
+      <summary>Additional Controls Order</summary>
+      <description>Order of additional controls</description>
+    </key>
+
   </schema>
 </schemalist>

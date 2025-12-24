@@ -4,6 +4,15 @@ import Gtk from "gi://Gtk";
 import Gdk from "gi://Gdk";
 import GLib from "gi://GLib";
 
+const BUTTONS = {
+  none: "Unassigned Control",
+  shuffle: "Toggle Shuffle",
+  spotify: "Toggle Spotify",
+  spacer: "Spacer",
+  download: "Download Track",
+  settings: "Open Settings",
+  like: "Toggle Like",
+};
 // function from https://gitlab.com/AndrewZaech/azwallpaper/-/blob/main/src/prefs.js
 function createOpenDirectoryButton(parent, settings, setting) {
   const button = new Gtk.Button({
@@ -228,7 +237,139 @@ export function buildGeneralPage(window, settings, metadata) {
   generalGroup.add(presistIndicatorRow);
   generalGroup.add(minimizedSpotifyRow);
 
-  // Downloads Group
+  // Controls Group
+  const DEFAULT_ORDER = ["shuffle", "toggle", "spacer", "download", "settings"];
+
+  const allButtons = Object.keys(BUTTONS);
+
+  let order = settings.get_strv("additional-controls-order");
+  if (!order.length) {
+    order = [...DEFAULT_ORDER];
+    settings.set_strv("additional-controls-order", order);
+  }
+
+  const orderGroup = new Adw.PreferencesGroup({
+    title: "Additional Controls",
+    description: "Configure button order and number of buttons",
+  });
+
+  const rows = [];
+
+  function showSwapToast(message = "Button swapped with existing position") {
+    const toast = new Adw.Toast({ title: message, timeout: 3 });
+    window.add_toast(toast);
+  }
+
+  function updateAllRows() {
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      row._updating = true;
+      const key = order[i];
+      const index = allButtons.indexOf(key);
+      row.selected = index >= 0 ? index : 0;
+      row._updating = false;
+    }
+  }
+
+  function saveOrder(newOrder) {
+    order = newOrder;
+    settings.set_strv("additional-controls-order", order);
+    updateAllRows();
+  }
+
+  function rebuildRows() {
+    for (const row of rows) {
+      orderGroup.remove(row);
+    }
+    rows.length = 0;
+
+    order.forEach((key, index) => {
+      addRow(index, key);
+    });
+  }
+
+  function addRow(index, value = "none") {
+    const row = new Adw.ComboRow({
+      title: `Position ${index + 1}`,
+      subtitle: "Select control",
+    });
+
+    const model = new Gtk.StringList();
+    for (const key of allButtons) {
+      model.append(BUTTONS[key]);
+    }
+    row.model = model;
+
+    row.selected = Math.max(0, allButtons.indexOf(value));
+
+    row.connect("notify::selected", () => {
+      if (row._updating) return;
+
+      const selectedKey = allButtons[row.selected];
+      const currentKey = order[index];
+
+      if (selectedKey === currentKey) return;
+
+      const existingIndex = order.indexOf(selectedKey);
+
+      if (existingIndex >= 0) {
+        [order[index], order[existingIndex]] = [
+          order[existingIndex],
+          order[index],
+        ];
+        saveOrder([...order]);
+        showSwapToast(
+          `${BUTTONS[selectedKey]} swapped with position ${existingIndex + 1}`,
+        );
+      } else {
+        order[index] = selectedKey;
+        saveOrder([...order]);
+      }
+    });
+
+    const removeButton = new Gtk.Button({
+      icon_name: "user-trash-symbolic",
+      valign: Gtk.Align.CENTER,
+      tooltip_text: "Remove position",
+    });
+
+    removeButton.connect("clicked", () => {
+      order.splice(index, 1);
+      saveOrder([...order]);
+    });
+
+    row.add_suffix(removeButton);
+    row.activatable_widget = removeButton;
+
+    rows.push(row);
+    orderGroup.add(row);
+  }
+
+  rebuildRows();
+
+  const addButton = new Adw.ActionRow({
+    title: "Add Position",
+    activatable: true,
+  });
+
+  const addIcon = new Gtk.Image({
+    icon_name: "list-add-symbolic",
+  });
+
+  addButton.add_suffix(addIcon);
+  addButton.connect("activated", () => {
+    saveOrder([...order, "none"]);
+  });
+
+  orderGroup.add(addButton);
+
+  settings.connect("changed::additional-controls-order", () => {
+    order = settings.get_strv("additional-controls-order");
+    updateAllRows();
+  });
+
+  generalPage.add(orderGroup);
+
   const downloadsGroup = new Adw.PreferencesGroup({
     title: "Downloads Settings",
     description: "Configure the behavior of downloading system",

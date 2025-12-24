@@ -3,4 +3,5 @@ export const INFO_TIPS = [
   "Click the title section to copy the track URL.",
   "Scroll over the top panel label to adjust Spotify volume.",
   "Visit extension's settings to customize your gspotify experience.",
+  "Toggling Like State for Track requires you to connect GSpotify to your Spotify account.",
 ];
