@@ -377,6 +377,7 @@ export class SpotifyUI {
 
   async _onLikeButtonClicked() {
     logInfo("Spotify Connection Status:", this._isSpotifyConnected);
+    await _checkSpotifyConnection();
     if (!this._isSpotifyConnected) {
       this._extension.sendOSDMessage(
         "Connect Spotify account from extension's setting to like songs",

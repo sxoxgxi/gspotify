@@ -13,7 +13,7 @@ import {
   clearAccessToken,
 } from "../spotify-auth.js";
 
-export function buildSpotifyPage(window, extensionPath) {
+export function buildSpotifyPage(window) {
   const spotifyPage = new Adw.PreferencesPage({
     title: "Spotify",
     icon_name: "dialog-password-symbolic",

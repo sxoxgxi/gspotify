@@ -403,6 +403,7 @@ export default class SpotifyExtension extends Extension {
     this._indicator._spotdl.checkSpotDLInstalled((installed) => {
       if (!installed) {
         logInfo("SpotDL is not installed");
+        this.sendOSDMessage("SpotDL is not installed", "dialog-error-symbolic");
         this._indicator._label.text = "SpotDL is not installed";
         return;
       }
@@ -433,8 +434,16 @@ export default class SpotifyExtension extends Extension {
       (result) => {
         if (result.success) {
           this._indicator._label.text = `${displayText} ✓`;
+          this.sendOSDMessage(
+            "Track downloaded successfully",
+            "dialog-info-symbolic",
+          );
         } else {
           logWarn(`Download failed: ${result.error || result.exitCode}`);
+          this.sendOSDMessage(
+            "Download failed, Check SpotDL logs for details",
+            "dialog-warning-symbolic",
+          );
           this._indicator._label.text = `${displayText} ✕`;
         }
       },

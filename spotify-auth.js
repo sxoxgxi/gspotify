@@ -4,9 +4,8 @@ import Soup from "gi://Soup?version=3.0";
 import Secret from "gi://Secret";
 
 import { buildQueryString } from "./utils.js";
+import { CLIENT_ID, PORT } from "./constants.js";
 
-const CLIENT_ID = "48fee64225164274a00562eff58100b5";
-const PORT = 9000;
 const REDIRECT_URI = `http://127.0.0.1:${PORT}/callback`;
 
 let tokenCache = {

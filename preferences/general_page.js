@@ -346,8 +346,6 @@ export function buildGeneralPage(window, settings, metadata) {
     orderGroup.add(row);
   }
 
-  rebuildRows();
-
   const addButton = new Adw.ActionRow({
     title: "Add Position",
     activatable: true,
@@ -364,6 +362,8 @@ export function buildGeneralPage(window, settings, metadata) {
   });
 
   orderGroup.add(addButton);
+
+  rebuildRows();
 
   settings.connect("changed::additional-controls-order", () => {
     order = settings.get_strv("additional-controls-order");
