@@ -436,7 +436,7 @@ export default class SpotifyExtension extends Extension {
           this._indicator._label.text = `${displayText} ✓`;
           this.sendOSDMessage(
             "Track downloaded successfully",
-            "dialog-info-symbolic",
+            "dialog-information-symbolic",
           );
         } else {
           logWarn(`Download failed: ${result.error || result.exitCode}`);
