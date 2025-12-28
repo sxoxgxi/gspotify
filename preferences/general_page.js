@@ -336,6 +336,7 @@ export function buildGeneralPage(window, settings, metadata) {
     removeButton.connect("clicked", () => {
       order.splice(index, 1);
       saveOrder([...order]);
+      rebuildRows();
     });
 
     row.add_suffix(removeButton);
@@ -359,6 +360,7 @@ export function buildGeneralPage(window, settings, metadata) {
   addButton.add_suffix(addIcon);
   addButton.connect("activated", () => {
     saveOrder([...order, "none"]);
+    rebuildRows();
   });
 
   orderGroup.add(addButton);
