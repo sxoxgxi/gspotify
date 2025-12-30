@@ -14,6 +14,8 @@ import { SpotDLExecutor } from "./spotdl.js";
 import { getStatusSymbol, toggleSpotifyWindow } from "./utils.js";
 import { logInfo, logWarn, logError } from "./utils.js";
 import { destroyStatsManager } from "./stats.js";
+import { cleanupSpotify } from "./spotify-helper.js";
+import { cleanupSpotifyAuth } from "./spotify-auth.js";
 
 const SHELL_VERSION = parseFloat(Config.PACKAGE_VERSION);
 
@@ -256,6 +258,8 @@ export default class SpotifyExtension extends Extension {
     }
 
     destroyStatsManager();
+    cleanupSpotify();
+    cleanupSpotifyAuth();
 
     if (this._iconIndicator) {
       this._iconIndicator.destroy();

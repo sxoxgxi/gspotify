@@ -148,6 +148,7 @@ export class SpotifyUI {
         this._infoTipBox.remove_child(tipLabel);
         if (this._infoTipBox.get_n_children() === 0) {
           this._infoTipBox.destroy();
+          this._tipSeparator.destroy();
         }
       });
       this._infoTipBox.add_child(tipLabel);
@@ -377,7 +378,6 @@ export class SpotifyUI {
 
   async _onLikeButtonClicked() {
     logInfo("Spotify Connection Status:", this._isSpotifyConnected);
-    await _checkSpotifyConnection();
     if (!this._isSpotifyConnected) {
       this._extension.sendOSDMessage(
         "Connect Spotify account from extension's setting to like songs",
@@ -419,6 +419,7 @@ export class SpotifyUI {
   }
 
   _updateLikeButtonIcon() {
+    if (!this._likeButton) return;
     const iconPath = this._isLiked
       ? "emote-love-symbolic"
       : `${this._extension.path}/icons/heart-outline-thin-symbolic.svg`;

@@ -12,7 +12,7 @@ export default class GSpotifyPreferences extends ExtensionPreferences {
     window.add(generalPage);
     const statsPage = buildStatsPage(window, settings);
     window.add(statsPage);
-    const spotifyPage = buildSpotifyPage(window, this.path);
+    const spotifyPage = buildSpotifyPage(window);
     window.add(spotifyPage);
     const donatePage = buildDonatePage(window, this.path);
     window.add(donatePage);

@@ -8,5 +8,9 @@ export const INFO_TIPS = [
 ];
 
 // Auth constants
+
+// CLIENT_ID is public by design for Spotify PKCE authorization
+// It identifies the application but does not authenticate it so client secrets are not required
+// https://developer.spotify.com/documentation/web-api/tutorials/code-pkce-flow
 export const CLIENT_ID = "48fee64225164274a00562eff58100b5";
 export const PORT = 9000;

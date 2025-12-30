@@ -1,9 +1,10 @@
 import GLib from "gi://GLib";
 import Gio from "gi://Gio";
-import Soup from "gi://Soup?version=3.0";
+import Soup from "gi://Soup";
 import Secret from "gi://Secret";
 
 import { buildQueryString } from "./utils.js";
+import { logInfo } from "./utils.js";
 import { CLIENT_ID, PORT } from "./constants.js";
 
 const REDIRECT_URI = `http://127.0.0.1:${PORT}/callback`;
@@ -12,6 +13,8 @@ let tokenCache = {
   accessToken: null,
   expiresAt: null,
 };
+
+let activeSessions = new Set();
 
 export function generatePKCE() {
   const verifierBytes = new Uint8Array(32);
@@ -28,7 +31,7 @@ export function generatePKCE() {
   const checksum = new GLib.Checksum(GLib.ChecksumType.SHA256);
 
   const verifierUtf8 = new TextEncoder().encode(verifier);
-  checksum.update(verifierUtf8, verifierUtf8.length);
+  checksum.update(verifierUtf8);
 
   const digestHex = checksum.get_string();
 
@@ -101,6 +104,8 @@ export async function exchangeCode(code, verifier) {
   });
 
   const session = new Soup.Session();
+  activeSessions.add(session);
+
   const msg = Soup.Message.new(
     "POST",
     "https://accounts.spotify.com/api/token",
@@ -111,34 +116,41 @@ export async function exchangeCode(code, verifier) {
 
   msg.set_request_body_from_bytes("application/x-www-form-urlencoded", bytes);
 
-  const response = await new Promise((resolve, reject) => {
-    session.send_and_read_async(
-      msg,
-      GLib.PRIORITY_DEFAULT,
-      null,
-      (_session, result) => {
-        try {
-          const bytes = session.send_and_read_finish(result);
-          resolve(bytes);
-        } catch (e) {
-          reject(e);
-        }
-      },
-    );
-  });
+  try {
+    const response = await new Promise((resolve, reject) => {
+      session.send_and_read_async(
+        msg,
+        GLib.PRIORITY_DEFAULT,
+        null,
+        (_session, result) => {
+          try {
+            const bytes = session.send_and_read_finish(result);
+            resolve(bytes);
+          } catch (e) {
+            reject(e);
+          }
+        },
+      );
+    });
 
-  return JSON.parse(new TextDecoder().decode(response.get_data()));
+    return JSON.parse(new TextDecoder().decode(response.get_data()));
+  } finally {
+    activeSessions.delete(session);
+  }
 }
 
-const schema = new Secret.Schema(
-  "io.github.gspotify.sxoxgxi",
-  Secret.SchemaFlags.NONE,
-  {
-    refresh_token: Secret.SchemaAttributeType.STRING,
-  },
-);
+function getRefreshTokenSchema() {
+  return new Secret.Schema(
+    "io.github.gspotify.sxoxgxi",
+    Secret.SchemaFlags.NONE,
+    {
+      refresh_token: Secret.SchemaAttributeType.STRING,
+    },
+  );
+}
 
 export function storeRefreshToken(token) {
+  const schema = getRefreshTokenSchema();
   return new Promise((resolve, reject) => {
     Secret.password_store(
       schema,
@@ -160,6 +172,7 @@ export function storeRefreshToken(token) {
 }
 
 export function getRefreshToken() {
+  const schema = getRefreshTokenSchema();
   return new Promise((resolve, reject) => {
     Secret.password_lookup(
       schema,
@@ -178,6 +191,7 @@ export function getRefreshToken() {
 }
 
 export function deleteRefreshToken() {
+  const schema = getRefreshTokenSchema();
   return new Promise((resolve, reject) => {
     Secret.password_clear(
       schema,
@@ -195,18 +209,21 @@ export function deleteRefreshToken() {
   });
 }
 
-const ACCESS_TOKEN_SCHEMA = new Secret.Schema(
-  "io.github.gspotify.access",
-  Secret.SchemaFlags.NONE,
-  {
-    access_token: Secret.SchemaAttributeType.STRING,
-  },
-);
+function getAccessTokenSchema() {
+  return new Secret.Schema(
+    "io.github.gspotify.access",
+    Secret.SchemaFlags.NONE,
+    {
+      access_token: Secret.SchemaAttributeType.STRING,
+    },
+  );
+}
 
 export function storeAccessToken(token, expiresIn) {
   tokenCache.accessToken = token;
   tokenCache.expiresAt = Date.now() + (expiresIn - 60) * 1000;
 
+  const schema = getAccessTokenSchema();
   return new Promise((resolve, reject) => {
     const tokenData = JSON.stringify({
       token,
@@ -214,7 +231,7 @@ export function storeAccessToken(token, expiresIn) {
     });
 
     Secret.password_store(
-      ACCESS_TOKEN_SCHEMA,
+      schema,
       { access_token: "spotify" },
       Secret.COLLECTION_DEFAULT,
       "GSpotify Spotify Access Token",
@@ -233,9 +250,10 @@ export function storeAccessToken(token, expiresIn) {
 }
 
 export function getStoredAccessToken() {
+  const schema = getAccessTokenSchema();
   return new Promise((resolve, reject) => {
     Secret.password_lookup(
-      ACCESS_TOKEN_SCHEMA,
+      schema,
       { access_token: "spotify" },
       null,
       (source, result) => {
@@ -265,9 +283,10 @@ export function clearAccessToken() {
   tokenCache.accessToken = null;
   tokenCache.expiresAt = null;
 
+  const schema = getAccessTokenSchema();
   return new Promise((resolve, reject) => {
     Secret.password_clear(
-      ACCESS_TOKEN_SCHEMA,
+      schema,
       { access_token: "spotify" },
       null,
       (source, result) => {
@@ -314,6 +333,8 @@ export async function getValidAccessToken() {
 
 async function getAccessTokenFromRefresh(refreshToken) {
   const session = new Soup.Session();
+  activeSessions.add(session);
+
   const msg = Soup.Message.new(
     "POST",
     "https://accounts.spotify.com/api/token",
@@ -325,29 +346,44 @@ async function getAccessTokenFromRefresh(refreshToken) {
 
   msg.set_request_body_from_bytes("application/x-www-form-urlencoded", bytes);
 
-  const response = await new Promise((resolve, reject) => {
-    session.send_and_read_async(
-      msg,
-      GLib.PRIORITY_DEFAULT,
-      null,
-      (_session, result) => {
-        try {
-          const bytes = session.send_and_read_finish(result);
-          resolve(bytes);
-        } catch (e) {
-          reject(e);
-        }
-      },
-    );
-  });
+  try {
+    const response = await new Promise((resolve, reject) => {
+      session.send_and_read_async(
+        msg,
+        GLib.PRIORITY_DEFAULT,
+        null,
+        (_session, result) => {
+          try {
+            const bytes = session.send_and_read_finish(result);
+            resolve(bytes);
+          } catch (e) {
+            reject(e);
+          }
+        },
+      );
+    });
 
-  const data = JSON.parse(new TextDecoder().decode(response.get_data()));
+    const data = JSON.parse(new TextDecoder().decode(response.get_data()));
 
-  if (data.error) {
-    throw new Error(
-      `Spotify API error: ${data.error} - ${data.error_description || ""}`,
-    );
+    if (data.error) {
+      throw new Error(
+        `Spotify API error: ${data.error} - ${data.error_description || ""}`,
+      );
+    }
+
+    return data;
+  } finally {
+    activeSessions.delete(session);
   }
+}
 
-  return data;
+export function cleanupSpotifyAuth() {
+  for (const session of activeSessions) {
+    session.abort();
+  }
+  activeSessions.clear();
+  logInfo("Active auth sessions cleared");
+
+  tokenCache.accessToken = null;
+  tokenCache.expiresAt = null;
 }
