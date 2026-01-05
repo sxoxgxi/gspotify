@@ -93,5 +93,24 @@
       <description>Order of additional controls</description>
     </key>
 
+    <key name="spotify-client-id" type="s">
+      <default>"YOUR_SPOTIFY_CLIENT_ID"</default>
+      <summary>Spotify Client ID</summary>
+      <description>Spotify Client ID</description>
+    </key>
+
+    <key name="spotify-callback-port" type="i">
+      <default>9000</default>
+      <summary>Spotify Callback Port</summary>
+      <description>Spotify Callback Port</description>
+    </key>
+
+    
+    <key name="spotify-scopes" type="s">
+      <default>"user-library-read user-library-modify"</default>
+      <summary>Spotify OAuth Scopes</summary>
+      <description>Space-separated list of OAuth scopes for Spotify API access</description>
+    </key>
+      
   </schema>
 </schemalist>

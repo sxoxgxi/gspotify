@@ -34,6 +34,8 @@ export async function getSpotifyUsername() {
 
     const data = JSON.parse(new TextDecoder().decode(response.get_data()));
     return data.display_name || data.id;
+  } catch (e) {
+    throw new Error(`Failed to fetch Spotify username: ${e.message}`);
   } finally {
     activeSessions.delete(session);
   }

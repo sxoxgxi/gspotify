@@ -3,16 +3,55 @@ import Gio from "gi://Gio";
 import Soup from "gi://Soup";
 import Secret from "gi://Secret";
 
-import { buildQueryString } from "./utils.js";
-import { logInfo } from "./utils.js";
-import { CLIENT_ID, PORT } from "./constants.js";
-
-const REDIRECT_URI = `http://127.0.0.1:${PORT}/callback`;
+import { buildQueryString, logError, logInfo } from "./utils.js";
 
 let tokenCache = {
   accessToken: null,
   expiresAt: null,
 };
+
+let CLIENT_ID = null;
+let PORT = 9000;
+let REDIRECT_URI = null;
+let settings = null;
+
+export function initializeAuth(settingsInstance) {
+  settings = settingsInstance;
+
+  try {
+    CLIENT_ID = settings.get_string("spotify-client-id");
+    if (!CLIENT_ID || CLIENT_ID.trim() === "") {
+      throw new Error("Spotify client ID is empty or not set in settings");
+    }
+    CLIENT_ID = CLIENT_ID.trim();
+  } catch (err) {
+    logError(`Failed to read spotify-client-id from settings: ${err.message}`);
+    CLIENT_ID = null;
+  }
+
+  try {
+    PORT = settings.get_int("spotify-callback-port");
+    if (PORT <= 0 || PORT > 65535) {
+      throw new Error(`Invalid port number: ${PORT}`);
+    }
+  } catch (err) {
+    logError(
+      `Invalid or missing callback-port, falling back to default 8888: ${err.message}`,
+    );
+    PORT = 8888;
+  }
+
+  REDIRECT_URI = `http://127.0.0.1:${PORT}/callback`;
+
+  settings.connect("changed::spotify-client-id", () => {
+    CLIENT_ID = settings.get_string("spotify-client-id").trim();
+  });
+
+  settings.connect("changed::spotify-callback-port", () => {
+    PORT = settings.get_int("spotify-callback-port");
+    REDIRECT_URI = `http://127.0.0.1:${PORT}/callback`;
+  });
+}
 
 let activeSessions = new Set();
 
@@ -49,45 +88,82 @@ export function generatePKCE() {
   return { verifier, challenge };
 }
 
-export function startCallbackServer(onCode) {
-  const service = new Gio.SocketService();
-  const address = new Gio.InetSocketAddress({
-    address: Gio.InetAddress.new_from_string("127.0.0.1"),
-    port: PORT,
-  });
-  service.add_address(
-    address,
-    Gio.SocketType.STREAM,
-    Gio.SocketProtocol.TCP,
-    null,
-  );
-  service.connect("incoming", (_svc, connection) => {
-    const input = connection.get_input_stream();
-    const data = input.read_bytes(4096, null).toArray();
-    const request = new TextDecoder().decode(data);
-    const match = request.match(/GET \/callback\?code=([^&\s]+)/);
-    if (match) {
-      onCode(match[1]);
-    }
-    const output = connection.get_output_stream();
-    const responseText = `HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<h2>Gspotify: You can close this window.</h2>`;
-    const responseBytes = new TextEncoder().encode(responseText);
-    output.write_all(responseBytes, null);
-    connection.close(null);
-    service.stop();
-    return true;
-  });
-  service.start();
-}
+export function startCallbackServer(onCode, onError) {
+  try {
+    const service = new Gio.SocketService();
+    const address = new Gio.InetSocketAddress({
+      address: Gio.InetAddress.new_from_string("127.0.0.1"),
+      port: PORT,
+    });
 
+    try {
+      service.add_address(
+        address,
+        Gio.SocketType.STREAM,
+        Gio.SocketProtocol.TCP,
+        null,
+      );
+    } catch (e) {
+      if (onError) {
+        onError(
+          new Error(
+            `Port ${PORT} is already in use. Please choose a different port in settings or close the application using it.`,
+          ),
+        );
+      }
+      return;
+    }
+
+    service.connect("incoming", (_svc, connection) => {
+      const input = connection.get_input_stream();
+      const data = input.read_bytes(4096, null).toArray();
+      const request = new TextDecoder().decode(data);
+      const match = request.match(/GET \/callback\?code=([^&\s]+)/);
+      if (match) {
+        onCode(match[1]);
+      }
+      const output = connection.get_output_stream();
+      const responseText = `HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<h2>Gspotify: You can close this window.</h2>`;
+      const responseBytes = new TextEncoder().encode(responseText);
+      output.write_all(responseBytes, null);
+      connection.close(null);
+      service.stop();
+      return true;
+    });
+    service.start();
+  } catch (e) {
+    logError(`Failed to start callback server: ${e.message}`);
+    if (onError) {
+      onError(e);
+    }
+  }
+}
 export function openSpotifyAuth(challenge) {
+  if (!CLIENT_ID) {
+    logError("Missing client id, please set it in settings");
+    return;
+  }
+
+  let scopeString = null;
+  if (settings) {
+    try {
+      scopeString = settings.get_string("spotify-scopes");
+    } catch (e) {
+      logError(`Failed to load saved scopes: ${e.message}`);
+    }
+  }
+
+  if (!scopeString || scopeString.trim() === "") {
+    scopeString = "user-library-read user-library-modify";
+  }
+
   const params = {
     client_id: CLIENT_ID,
     response_type: "code",
     redirect_uri: REDIRECT_URI,
     code_challenge_method: "S256",
     code_challenge: challenge,
-    scope: "user-library-read user-library-modify",
+    scope: scopeString,
   };
   const queryString = buildQueryString(params);
   const url = `https://accounts.spotify.com/authorize?${queryString}`;
@@ -317,7 +393,7 @@ export async function getValidAccessToken() {
 
   const refreshToken = await getRefreshToken();
   if (!refreshToken) {
-    throw new Error("No refresh token found");
+    logError("No refresh token found");
   }
 
   const tokenData = await getAccessTokenFromRefresh(refreshToken);
@@ -363,10 +439,23 @@ async function getAccessTokenFromRefresh(refreshToken) {
       );
     });
 
-    const data = JSON.parse(new TextDecoder().decode(response.get_data()));
+    const statusCode = msg.get_status();
+    const responseText = new TextDecoder().decode(response.get_data());
+
+    if (statusCode !== 200) {
+      logError(
+        `Token refresh failed with status ${statusCode}. Please reconnect your Spotify account.`,
+      );
+    }
+
+    if (!responseText || responseText.trim() === "") {
+      logError("Empty response from Spotify. Please reconnect your account.");
+    }
+
+    const data = JSON.parse(responseText);
 
     if (data.error) {
-      throw new Error(
+      logError(
         `Spotify API error: ${data.error} - ${data.error_description || ""}`,
       );
     }
@@ -376,7 +465,6 @@ async function getAccessTokenFromRefresh(refreshToken) {
     activeSessions.delete(session);
   }
 }
-
 export function cleanupSpotifyAuth() {
   for (const session of activeSessions) {
     session.abort();

@@ -3,6 +3,7 @@ import Gtk from "gi://Gtk";
 import Gio from "gi://Gio";
 
 import { StatsManager } from "../stats.js";
+import { createOpenURLButton } from "./prefs_utils.js";
 
 function formatDuration(seconds) {
   const days = Math.floor(seconds / 86400);
@@ -178,6 +179,25 @@ export function buildStatsPage(window, settings) {
     Gio.SettingsBindFlags.DEFAULT,
   );
   metadataGroup.add(collectStatsRow);
+
+  // External Links Group
+  const externalLinksGroup = new Adw.PreferencesGroup({
+    title: "Recommended Integrations",
+  });
+  statsPage.add(externalLinksGroup);
+
+  const lastfmRow = new Adw.ActionRow({
+    title: "Last.fm",
+    subtitle: "Sync your listening history with Last.fm",
+  });
+
+  const lastfmButton = createOpenURLButton(
+    "https://www.last.fm/about/trackmymusic",
+  );
+  lastfmRow.add_suffix(lastfmButton);
+  lastfmRow.activatable_widget = lastfmButton;
+
+  externalLinksGroup.add(lastfmRow);
 
   return statsPage;
 }

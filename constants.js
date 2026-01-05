@@ -7,10 +7,64 @@ export const INFO_TIPS = [
   "Toggling Like State for Track requires you to connect GSpotify to your Spotify account.",
 ];
 
-// Auth constants
-
-// CLIENT_ID is public by design for Spotify PKCE authorization
-// It identifies the application but does not authenticate it so client secrets are not required
-// https://developer.spotify.com/documentation/web-api/tutorials/code-pkce-flow
-export const CLIENT_ID = "48fee64225164274a00562eff58100b5";
-export const PORT = 9000;
+// Spotify Scopes
+export const scopes = [
+  {
+    id: "user-library-read",
+    label: "Read User Library - Necessary for like",
+    default: true,
+  },
+  {
+    id: "user-library-modify",
+    label: "Modify User Library - Necessary for like",
+    default: true,
+  },
+  {
+    id: "user-read-private",
+    label: "Read Private User Data",
+    default: false,
+  },
+  { id: "user-read-email", label: "Read Email Address", default: false },
+  {
+    id: "user-read-playback-state",
+    label: "Read Playback State",
+    default: false,
+  },
+  {
+    id: "user-modify-playback-state",
+    label: "Modify Playback State",
+    default: false,
+  },
+  {
+    id: "user-read-currently-playing",
+    label: "Read Currently Playing",
+    default: false,
+  },
+  {
+    id: "user-read-recently-played",
+    label: "Read Recently Played",
+    default: false,
+  },
+  {
+    id: "playlist-read-private",
+    label: "Read Private Playlists",
+    default: false,
+  },
+  {
+    id: "playlist-read-collaborative",
+    label: "Read Collaborative Playlists",
+    default: false,
+  },
+  {
+    id: "playlist-modify-public",
+    label: "Modify Public Playlists",
+    default: false,
+  },
+  {
+    id: "playlist-modify-private",
+    label: "Modify Private Playlists",
+    default: false,
+  },
+  { id: "user-top-read", label: "Read Top Artists/Tracks", default: false },
+  { id: "streaming", label: "Streaming (Web Playback SDK)", default: false },
+];
