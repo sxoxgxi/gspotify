@@ -397,8 +397,8 @@ export class SpotifyUI {
       this._likeButton.reactive = false;
       const newLikedState = await toggleLike(this._currentTrackId);
       this._isLiked = newLikedState;
-      this._updateLikeButtonIcon();
 
+      this._updateLikeButtonIcon();
       const message = newLikedState
         ? "Added to Liked Songs"
         : "Removed from Liked Songs";
@@ -408,9 +408,8 @@ export class SpotifyUI {
       this._extension.sendOSDMessage(message, icon);
     } catch (e) {
       logWarn("Failed to toggle like state:", e);
-      this._isSpotifyConnected = false;
       this._extension.sendOSDMessage(
-        "Spotify authentication expired. Reconnect in settings",
+        "Access token may have expired. Reconnect in settings",
         "dialog-error-symbolic",
       );
     } finally {
@@ -498,6 +497,7 @@ export class SpotifyUI {
       if (trackId && trackId !== this._currentTrackId) {
         this._currentTrackId = trackId;
         await this._checkLikeStatus();
+        this._updateLikeButtonIcon();
       }
     } else {
       this._currentTrackId = null;
@@ -524,24 +524,26 @@ export class SpotifyUI {
 
   async _checkLikeStatus() {
     if (!this._currentTrackId) {
-      return;
+      return false;
     }
 
     if (!this._isSpotifyConnected) {
       this._isLiked = false;
       this._updateLikeButtonIcon();
-      return;
+      return false;
     }
 
     try {
       this._isLiked = await isTrackLiked(this._currentTrackId);
       this._updateLikeButtonIcon();
+      return this._isLiked;
     } catch (e) {
       logWarn("Failed to check like status:", e);
 
       this._isSpotifyConnected = false;
       this._isLiked = false;
       this._updateLikeButtonIcon();
+      return false;
     }
   }
 

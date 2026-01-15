@@ -446,8 +446,8 @@ export function buildSpotifyPage(window, settings) {
   advancedGroup.add(scopesExpander);
 
   spotifyPage.add(helpGroup);
-  spotifyPage.add(advancedGroup);
   spotifyPage.add(spotifyGroup);
+  spotifyPage.add(advancedGroup);
 
   updateUIVisibility();
   updateConnectionStatus();

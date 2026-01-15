@@ -1,5 +1,7 @@
 import Adw from "gi://Adw";
 import Gtk from "gi://Gtk";
+import GLib from "gi://GLib";
+import Gdk from "gi://Gdk";
 import Gio from "gi://Gio";
 
 import { StatsManager } from "../stats.js";
@@ -165,7 +167,27 @@ export function buildStatsPage(window, settings) {
   });
   resetStatsRow.add_suffix(resetButton);
   resetStatsRow.activatable_widget = resetButton;
-  metadataGroup.add(resetStatsRow);
+
+  const openLocalDataButton = new Gtk.Button({
+    icon_name: "document-open-symbolic",
+    valign: Gtk.Align.CENTER,
+  });
+  openLocalDataButton.connect("clicked", () => {
+    const directory = GLib.build_filenamev([
+      GLib.get_user_config_dir(),
+      "gspotify",
+    ]);
+    const file = Gio.file_new_for_path(directory);
+    const fileUri = file.get_uri();
+    Gtk.show_uri(window.get_root(), fileUri, Gdk.CURRENT_TIME);
+  });
+  const openLocalDataRow = new Adw.ActionRow({
+    title: "Open Local Data",
+    subtitle: "Open your local listening statistics data",
+    activatable: true,
+  });
+  openLocalDataRow.add_suffix(openLocalDataButton);
+  openLocalDataRow.activatable_widget = openLocalDataButton;
 
   const collectStatsRow = new Adw.SwitchRow({
     title: "Collect Statistics",
@@ -178,6 +200,8 @@ export function buildStatsPage(window, settings) {
     "active",
     Gio.SettingsBindFlags.DEFAULT,
   );
+  metadataGroup.add(openLocalDataRow);
+  metadataGroup.add(resetStatsRow);
   metadataGroup.add(collectStatsRow);
 
   // External Links Group
