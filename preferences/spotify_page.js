@@ -16,6 +16,8 @@ import { logError } from "../utils.js";
 import { createOpenURLButton } from "./prefs_utils.js";
 import { scopes } from "../constants.js";
 
+const BACKUP_CLIENT_ID = "48fee64225164274a00562eff58100b5";
+
 export function buildSpotifyPage(window, settings) {
   const spotifyPage = new Adw.PreferencesPage({
     title: "Spotify",
@@ -89,6 +91,31 @@ export function buildSpotifyPage(window, settings) {
     valign: Gtk.Align.CENTER,
     tooltip_text: "Copy to clipboard",
   });
+
+  const backupClientIdRow = new Adw.ActionRow({
+    title: "Backup Client ID",
+    subtitle: "Use if you can't create an app in your Spotify account",
+  });
+
+  const copyBackupButton = new Gtk.Button({
+    icon_name: "edit-copy-symbolic",
+    valign: Gtk.Align.CENTER,
+    css_classes: ["destructive-action"],
+    tooltip_text: "Copy only if you can't create an app in the dashboard.",
+  });
+
+  copyBackupButton.connect("clicked", () => {
+    const clipboard = window.get_clipboard();
+    clipboard.set(BACKUP_CLIENT_ID);
+
+    const toast = new Adw.Toast({
+      title: "Copied, now paste it above, remember it may show errors",
+      timeout: 5,
+    });
+    window.add_toast(toast);
+  });
+
+  backupClientIdRow.add_suffix(copyBackupButton);
 
   function updateRedirectUri() {
     const port = callbackPortRow.get_value();
@@ -441,6 +468,7 @@ export function buildSpotifyPage(window, settings) {
   spotifyGroup.add(testRow);
 
   advancedGroup.add(clientIdRow);
+  advancedGroup.add(backupClientIdRow);
   advancedGroup.add(callbackPortRow);
   advancedGroup.add(redirectUriRow);
   advancedGroup.add(scopesExpander);
