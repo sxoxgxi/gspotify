@@ -18,27 +18,18 @@ let settings = null;
 export function initializeAuth(settingsInstance) {
   settings = settingsInstance;
 
-  try {
-    CLIENT_ID = settings.get_string("spotify-client-id");
-    if (!CLIENT_ID || CLIENT_ID.trim() === "") {
-      throw new Error("Spotify client ID is empty or not set in settings");
-    }
-    CLIENT_ID = CLIENT_ID.trim();
-  } catch (err) {
-    logError(`Failed to read spotify-client-id from settings: ${err.message}`);
+  CLIENT_ID = settings.get_string("spotify-client-id");
+  if (!CLIENT_ID || CLIENT_ID.trim() === "") {
+    logError("Spotify client ID is empty or not set in settings");
     CLIENT_ID = null;
+  } else {
+    CLIENT_ID = CLIENT_ID.trim();
   }
 
-  try {
-    PORT = settings.get_int("spotify-callback-port");
-    if (PORT <= 0 || PORT > 65535) {
-      throw new Error(`Invalid port number: ${PORT}`);
-    }
-  } catch (err) {
-    logError(
-      `Invalid or missing callback-port, falling back to default 8888: ${err.message}`,
-    );
-    PORT = 8888;
+  PORT = settings.get_int("spotify-callback-port");
+  if (PORT <= 0 || PORT > 65535) {
+    logError(`Invalid port number: ${PORT}, falling back to default 9000`);
+    PORT = 9000;
   }
 
   REDIRECT_URI = `http://127.0.0.1:${PORT}/callback`;
