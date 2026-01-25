@@ -41,6 +41,20 @@ export async function getSpotifyUsername() {
   }
 }
 
+export async function isSpotifyLoggedIn() {
+  try {
+    const accessToken = await getValidAccessToken();
+    if (!accessToken) {
+      return false;
+    }
+
+    return true;
+  } catch (e) {
+    logWarn(`Failed to check Spotify login status: ${e.message}`);
+    return false;
+  }
+}
+
 export async function isTrackLiked(trackId) {
   const accessToken = await getValidAccessToken();
   const session = new Soup.Session();

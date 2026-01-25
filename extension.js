@@ -14,7 +14,7 @@ import { SpotDLExecutor } from "./spotdl.js";
 import { getStatusSymbol, toggleSpotifyWindow } from "./utils.js";
 import { logInfo, logWarn, logError } from "./utils.js";
 import { destroyStatsManager } from "./stats.js";
-import { cleanupSpotify } from "./spotify-helper.js";
+import { cleanupSpotify, isSpotifyLoggedIn } from "./spotify-helper.js";
 import { cleanupSpotifyAuth } from "./spotify-auth.js";
 
 const SHELL_VERSION = parseFloat(Config.PACKAGE_VERSION);
@@ -223,6 +223,15 @@ export default class SpotifyExtension extends Extension {
       this._onSpotifyVanished.bind(this),
     );
 
+    this._controlOrderHandlerId = this._settings.connect(
+      "changed::additional-controls-order",
+      () => {
+        this._checkSpotifyLoginStatus();
+      },
+    );
+
+    this._checkSpotifyLoginStatus();
+
     const presistIndicator = this._settings.get_boolean("presist-indicator");
     if (presistIndicator && !this._indicator) {
       this._createIndicator(true);
@@ -245,6 +254,11 @@ export default class SpotifyExtension extends Extension {
     if (this._labelLengthHandlerId) {
       this._settings.disconnect(this._labelLengthHandlerId);
       this._labelLengthHandlerId = null;
+    }
+
+    if (this._controlOrderHandlerId) {
+      this._settings.disconnect(this._controlOrderHandlerId);
+      this._controlOrderHandlerId = null;
     }
 
     if (this._watcherId) {
@@ -387,6 +401,31 @@ export default class SpotifyExtension extends Extension {
         this._createIndicator(true);
       }
     }
+  }
+
+  _checkSpotifyLoginStatus() {
+    const controlsOrder = this._settings.get_strv("additional-controls-order");
+    const hasLikeButton = controlsOrder.includes("like");
+
+    if (!hasLikeButton) {
+      return;
+    }
+
+    isSpotifyLoggedIn()
+      .then((isLoggedIn) => {
+        if (!isLoggedIn) {
+          this.sendOSDMessage(
+            "Connect to Spotify to use the Like button",
+            "dialog-warning-symbolic",
+          );
+          logInfo("User needs to login to Spotify for like functionality");
+        } else {
+          logInfo("User is logged in to Spotify");
+        }
+      })
+      .catch((e) => {
+        logWarn(`Error checking Spotify login: ${e.message}`);
+      });
   }
 
   control(action) {
