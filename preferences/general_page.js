@@ -131,6 +131,16 @@ export function buildGeneralPage(window, settings, metadata) {
     "sensitive",
     Gio.SettingsBindFlags.DEFAULT,
   );
+  const artistVisible = new Adw.SwitchRow({
+    title: "Show Artist",
+    subtitle: "Shows the current artist."
+  });
+  settings.bind(
+    "show-artist",
+    artistVisible,
+    "active",
+    Gio.SettingsBindFlags.DEFAULT,
+  );
   const labelLengthRow = new Adw.SpinRow({
     title: "Label Length",
     subtitle: "Amount of characters to show in the label before truncating",
@@ -183,6 +193,7 @@ export function buildGeneralPage(window, settings, metadata) {
   generalGroup.add(labelLengthRow);
   generalGroup.add(useFixedWidthRow);
   generalGroup.add(widthRow);
+  generalGroup.add(artistVisible)
   generalGroup.add(presistIndicatorRow);
   generalGroup.add(minimizedSpotifyRow);
 
