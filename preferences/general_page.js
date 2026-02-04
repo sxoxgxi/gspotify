@@ -133,7 +133,7 @@ export function buildGeneralPage(window, settings, metadata) {
   );
   const artistVisible = new Adw.SwitchRow({
     title: "Show Artist",
-    subtitle: "Shows the current artist."
+    subtitle: "Shows the current artist.",
   });
   settings.bind(
     "show-artist",
@@ -193,7 +193,7 @@ export function buildGeneralPage(window, settings, metadata) {
   generalGroup.add(labelLengthRow);
   generalGroup.add(useFixedWidthRow);
   generalGroup.add(widthRow);
-  generalGroup.add(artistVisible)
+  generalGroup.add(artistVisible);
   generalGroup.add(presistIndicatorRow);
   generalGroup.add(minimizedSpotifyRow);
 
