@@ -133,7 +133,7 @@ export function buildGeneralPage(window, settings, metadata) {
   );
   const artistVisible = new Adw.SwitchRow({
     title: "Show Artist",
-    subtitle: "Shows the current artist.",
+    subtitle: "Shows the artist name before the track name",
   });
   settings.bind(
     "show-artist",

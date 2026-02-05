@@ -96,17 +96,18 @@ const SpotifyIndicator = GObject.registerClass(
       const showArtist = this._extension._settings.get_boolean("show-artist");
       const metadata = this._dbus.getMetadata();
 
-      this._settingsChangedId =
-      this._extension._settings.connect("changed::show-artist", () => {
-        this.updateLabel();
-      });
-
       if (overridePosition) {
         metadata.position_ms = overridePosition.position_ms;
       }
 
-      if (metadata.success && metadata.title && (!showArtist || metadata.artist)) {
-        const displayText = showArtist ? `${metadata.artist}    |    ${metadata.title}` : `${metadata.title}`;
+      if (
+        metadata.success &&
+        metadata.title &&
+        (!showArtist || metadata.artist)
+      ) {
+        const displayText = showArtist
+          ? `${metadata.artist}  |  ${metadata.title}`
+          : `${metadata.title}`;
         this._label.text =
           displayText.length > labelLength
             ? displayText.substring(0, labelLength - 3) + "..."
@@ -221,6 +222,13 @@ export default class SpotifyExtension extends Extension {
       },
     );
 
+    this._artistNameHandlerId = this._settings.connect(
+      "changed::show-artist",
+      () => {
+        this._onAirtistChanged();
+      },
+    );
+
     this._watcherId = Gio.bus_watch_name(
       Gio.BusType.SESSION,
       "org.mpris.MediaPlayer2.spotify",
@@ -260,6 +268,11 @@ export default class SpotifyExtension extends Extension {
     if (this._labelLengthHandlerId) {
       this._settings.disconnect(this._labelLengthHandlerId);
       this._labelLengthHandlerId = null;
+    }
+
+    if (this._artistNameHandlerId) {
+      this._settings.disconnect(this._artistNameHandlerId);
+      this._artistNameHandlerId = null;
     }
 
     if (this._controlOrderHandlerId) {
@@ -314,6 +327,14 @@ export default class SpotifyExtension extends Extension {
         this._iconIndicator.destroy();
         this._iconIndicator = null;
       }
+    }
+  }
+
+  _onAirtistChanged() {
+    if (this._indicator) {
+      this._indicator.updateLabel();
+    } else {
+      logInfo("Indicator not created yet to show changes");
     }
   }
 
