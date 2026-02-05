@@ -11,7 +11,7 @@ It is designed to be theme-aware, and customizable\*
 
 ## ✨ Features
 
-- **Now Playing info**: Show track title in the top bar.
+- **Now Playing info**: Show track title and artist in the top bar.
 - **Album Art**: Displays album art in the dropdown menu.
 - **Playback Controls**: Play, pause, skip, previous and volume control.
 - **Progress Bar**: Live track progress indicator with dynamic accent color.

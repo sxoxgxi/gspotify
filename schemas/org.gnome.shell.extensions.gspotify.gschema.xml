@@ -66,6 +66,12 @@
       <description>Show the spotify icon in the panel even if Spotify is not running. Clicking the icon will open Spotify</description>
     </key>
 
+    <key name="show-artist" type="b">
+      <default>true</default>
+      <summary>Show artist</summary>
+      <description>Show artist name before song title</description>
+    </key>
+
     <key name="open-spotify-minimized" type="b">
       <default>false</default>
       <summary>Open Spotify Minimized</summary>

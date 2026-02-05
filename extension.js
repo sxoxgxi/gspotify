@@ -93,14 +93,20 @@ const SpotifyIndicator = GObject.registerClass(
         return;
       }
       const labelLength = this._extension._settings.get_int("label-length");
+      const showArtist = this._extension._settings.get_boolean("show-artist");
       const metadata = this._dbus.getMetadata();
+
+      this._settingsChangedId =
+      this._extension._settings.connect("changed::show-artist", () => {
+        this.updateLabel();
+      });
 
       if (overridePosition) {
         metadata.position_ms = overridePosition.position_ms;
       }
 
-      if (metadata.success && metadata.title) {
-        const displayText = `${metadata.title}`;
+      if (metadata.success && metadata.title && (!showArtist || metadata.artist)) {
+        const displayText = showArtist ? `${metadata.artist}    |    ${metadata.title}` : `${metadata.title}`;
         this._label.text =
           displayText.length > labelLength
             ? displayText.substring(0, labelLength - 3) + "..."
