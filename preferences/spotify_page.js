@@ -16,8 +16,6 @@ import { logError } from "../utils.js";
 import { createOpenURLButton } from "./prefs_utils.js";
 import { scopes } from "../constants.js";
 
-const BACKUP_CLIENT_ID = "48fee64225164274a00562eff58100b5";
-
 export function buildSpotifyPage(window, settings) {
   const spotifyPage = new Adw.PreferencesPage({
     title: "Spotify",
@@ -39,17 +37,31 @@ export function buildSpotifyPage(window, settings) {
     subtitle: "Click here to open docs for getting your credentials",
   });
 
+  const spotifyPremiumRow = new Adw.ActionRow({
+    title: "Spotify Premium Required",
+    subtitle: "As of 03/2026, a Spotify Premium account is required to use API",
+  });
+
   const spotifyInfoButton = createOpenURLButton(
     "https://community.spotify.com/t5/Spotify-for-Developers/Updating-the-Criteria-for-Web-API-Extended-Access/m-p/6948230/highlight/true#M17776",
   );
   const spotifyHelpButton = createOpenURLButton(
     "https://developer.spotify.com/documentation/web-api/concepts/apps",
   );
+
+  const whyPremiumButton = createOpenURLButton(
+    "https://developer.spotify.com/blog/2026-02-06-update-on-developer-access-and-platform-security",
+  );
+
   infoRow.add_suffix(spotifyInfoButton);
   infoRow.activatable_widget = spotifyInfoButton;
   helpRow.add_suffix(spotifyHelpButton);
   helpRow.activatable_widget = spotifyHelpButton;
 
+  spotifyPremiumRow.add_suffix(whyPremiumButton);
+  spotifyPremiumRow.activatable_widget = whyPremiumButton;
+
+  helpGroup.add(spotifyPremiumRow);
   helpGroup.add(infoRow);
   helpGroup.add(helpRow);
 
@@ -91,31 +103,6 @@ export function buildSpotifyPage(window, settings) {
     valign: Gtk.Align.CENTER,
     tooltip_text: "Copy to clipboard",
   });
-
-  const backupClientIdRow = new Adw.ActionRow({
-    title: "Backup Client ID",
-    subtitle: "Use if you can't create an app in your Spotify account",
-  });
-
-  const copyBackupButton = new Gtk.Button({
-    icon_name: "edit-copy-symbolic",
-    valign: Gtk.Align.CENTER,
-    css_classes: ["destructive-action"],
-    tooltip_text: "Copy only if you can't create an app in the dashboard.",
-  });
-
-  copyBackupButton.connect("clicked", () => {
-    const clipboard = window.get_clipboard();
-    clipboard.set(BACKUP_CLIENT_ID);
-
-    const toast = new Adw.Toast({
-      title: "Copied, now paste it above, remember it may show errors",
-      timeout: 5,
-    });
-    window.add_toast(toast);
-  });
-
-  backupClientIdRow.add_suffix(copyBackupButton);
 
   function updateRedirectUri() {
     const port = callbackPortRow.get_value();
@@ -468,7 +455,6 @@ export function buildSpotifyPage(window, settings) {
   spotifyGroup.add(testRow);
 
   advancedGroup.add(clientIdRow);
-  advancedGroup.add(backupClientIdRow);
   advancedGroup.add(callbackPortRow);
   advancedGroup.add(redirectUriRow);
   advancedGroup.add(scopesExpander);

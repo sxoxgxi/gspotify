@@ -117,6 +117,12 @@
       <summary>Spotify OAuth Scopes</summary>
       <description>Space-separated list of OAuth scopes for Spotify API access</description>
     </key>
+
+    <key name="mute-advertisements" type="b">
+      <default>false</default>
+      <summary>Mute Advertisements</summary>
+      <description>Sets the volume to 0 when an advertisement is playing</description>
+    </key>
       
   </schema>
 </schemalist>

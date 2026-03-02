@@ -162,6 +162,7 @@ export function buildGeneralPage(window, settings, metadata) {
     subtitle:
       "Shows Spotify's icon indicator even if the spotify client is not running, opens the app when clicked",
   });
+
   settings.bind(
     "presist-indicator",
     presistIndicatorRow,
@@ -185,6 +186,19 @@ export function buildGeneralPage(window, settings, metadata) {
     "sensitive",
     Gio.SettingsBindFlags.DEFAULT,
   );
+
+  const muteAdvertisementRow = new Adw.SwitchRow({
+    title: "Mute Advertisements",
+    subtitle: "Mutes spotify when an advertisement is playing",
+  });
+
+  settings.bind(
+    "mute-advertisements",
+    muteAdvertisementRow,
+    "active",
+    Gio.SettingsBindFlags.DEFAULT,
+  );
+
   generalGroup.add(panelPositionRow);
   generalGroup.add(showInfoTipRow);
   generalGroup.add(useArtworkColorsRow);
@@ -194,6 +208,7 @@ export function buildGeneralPage(window, settings, metadata) {
   generalGroup.add(useFixedWidthRow);
   generalGroup.add(widthRow);
   generalGroup.add(artistVisible);
+  generalGroup.add(muteAdvertisementRow);
   generalGroup.add(presistIndicatorRow);
   generalGroup.add(minimizedSpotifyRow);
 

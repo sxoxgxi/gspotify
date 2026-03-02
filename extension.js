@@ -27,6 +27,8 @@ const SpotifyIndicator = GObject.registerClass(
       this._panelPosition = panelPosition;
       this._dbus = new SpotifyDBus(this);
       this._volumeTimeout = null;
+      this._adMuted = false;
+      this._volumeBeforeAd = null;
 
       this._ui = new SpotifyUI(this, extension, (dominantColor) => {
         this._onColorUpdate(dominantColor);
@@ -94,10 +96,35 @@ const SpotifyIndicator = GObject.registerClass(
       }
       const labelLength = this._extension._settings.get_int("label-length");
       const showArtist = this._extension._settings.get_boolean("show-artist");
+      const muteAd = this._extension._settings.get_boolean(
+        "mute-advertisements",
+      );
       const metadata = this._dbus.getMetadata();
 
       if (overridePosition) {
         metadata.position_ms = overridePosition.position_ms;
+      }
+
+      const isAd = metadata.title && metadata.title.includes("Advertisement");
+
+      if (muteAd) {
+        if (isAd && !this._adMuted) {
+          this._volumeBeforeAd = this._dbus.getVolume();
+          this._dbus.setVolume(0);
+          this._adMuted = true;
+        } else if (!isAd && this._adMuted) {
+          if (this._volumeBeforeAd !== null) {
+            this._dbus.setVolume(this._volumeBeforeAd);
+          }
+          this._adMuted = false;
+          this._volumeBeforeAd = null;
+        }
+      } else if (this._adMuted) {
+        if (this._volumeBeforeAd !== null) {
+          this._dbus.setVolume(this._volumeBeforeAd);
+        }
+        this._adMuted = false;
+        this._volumeBeforeAd = null;
       }
 
       if (
@@ -122,6 +149,10 @@ const SpotifyIndicator = GObject.registerClass(
     }
 
     destroy() {
+      if (this._adMuted && this._volumeBeforeAd !== null) {
+        this._dbus.setVolume(this._volumeBeforeAd);
+      }
+
       if (this._dbus) {
         this._dbus.destroy();
         this._dbus = null;
@@ -243,8 +274,6 @@ export default class SpotifyExtension extends Extension {
         this._checkSpotifyLoginStatus();
       },
     );
-
-    this._checkSpotifyLoginStatus();
 
     const presistIndicator = this._settings.get_boolean("presist-indicator");
     if (presistIndicator && !this._indicator) {
