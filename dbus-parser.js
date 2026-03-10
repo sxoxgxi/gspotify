@@ -277,6 +277,10 @@ export class SpotifyDBus {
           ? this.proxy.PlaybackStatus === "Playing"
           : false,
         shuffle: this.getShuffle(),
+        // include the mpris track object path
+        trackId: metadata["mpris:trackid"]
+          ? metadata["mpris:trackid"].unpack()
+          : null,
         success: true,
       };
     } catch (e) {
@@ -465,6 +469,45 @@ export class SpotifyDBus {
     if (this._playTimeInterval) {
       GLib.Source.remove(this._playTimeInterval);
       this._playTimeInterval = null;
+    }
+  }
+
+  // needed for clickable progress-bar 
+  seek(positionMs) {
+    if (!this.proxy) {
+      logWarn("DBus proxy not available for seek");
+      return false;
+    }
+
+    try {
+      this.proxy.call_sync(
+        "Seek",
+        new GLib.Variant("(x)", [positionMs * 1000]),
+        Gio.DBusCallFlags.NONE,
+        -1,
+        null,
+      );
+      return true;
+    } catch (e) {
+      logWarn(`Failed to seek to position ${positionMs}ms`);
+      return false;
+    }
+  }
+
+  setPosition(trackId, positionMs) {
+    if (!this.proxy) return false;
+    try {
+      this.proxy.call_sync(
+        "SetPosition",
+        new GLib.Variant("(ox)", [trackId, positionMs * 1000]),
+        Gio.DBusCallFlags.NONE,
+        -1,
+        null,
+      );
+      return true;
+    } catch (e) {
+      logWarn(`Failed to set position to ${positionMs}ms`);
+      return false;
     }
   }
 }
