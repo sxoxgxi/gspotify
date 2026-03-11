@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "allowJs": true,
+    "checkJs": false,
+    "moduleResolution": "bundler",
+    "types": [
+      "@girs/gjs",
+      "@girs/gnome-shell"
+    ]
+  },
+  "include": ["**/*.js", "**/*.d.ts"]
+  "exclude": ["node_modules"]
+}

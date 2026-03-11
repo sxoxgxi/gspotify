@@ -202,20 +202,20 @@ export class SpotifyUI {
     });
     this._infoBox.add_child(this._artistLabel);
 
-    // click handler ONCE --> before: everytime update() was called 
+    // click handler ONCE --> before: everytime update() was called
     this._infoBoxClickId = this._infoBox.connect("button-press-event", () => {
       if (this._currentMetadata?.url) {
         const clipboard = St.Clipboard.get_default();
-        clipboard.set_text(St.ClipboardType.CLIPBOARD, this._currentMetadata.url);
+        clipboard.set_text(
+          St.ClipboardType.CLIPBOARD,
+          this._currentMetadata.url,
+        );
         this._extension.sendOSDMessage(
           "Copied Spotify URL for " + this._currentMetadata.title,
           "edit-copy-symbolic",
         );
       } else {
-        this._extension.sendOSDMessage(
-          "URL Not Found",
-          "edit-copy-symbolic",
-        );
+        this._extension.sendOSDMessage("URL Not Found", "edit-copy-symbolic");
       }
       return Clutter.EVENT_STOP;
     });
@@ -252,10 +252,11 @@ export class SpotifyUI {
 
     this._progressHandle = new St.Widget({
       style_class: "spotify-progress-handle",
-      style: "width: 12px; height: 12px; border-radius: 50%; background-color: white;",
+      style:
+        "width: 10px; height: 10px; border-radius: 20px; background-color: white;",
       reactive: true,
     });
-    this._progressHandle.set_position(-6, -4);
+    this._progressHandle.set_position(-5, -4);
     this._progressBarContainer.add_child(this._progressHandle);
 
     this._isDragging = false;
@@ -274,36 +275,47 @@ export class SpotifyUI {
       return Clutter.EVENT_STOP;
     });
 
-    this._progressBarContainer.connect("button-release-event", (actor, event) => {
-      if (this._isDragging) {
-        const newPosition = this._calculateProgressPosition(actor, event);
-        this._currentPosition = newPosition;
-        this._lastUpdateTime = GLib.get_monotonic_time() / 1000;
-        this._isSeeking = true;
+    this._progressBarContainer.connect(
+      "button-release-event",
+      (actor, event) => {
+        if (this._isDragging) {
+          const newPosition = this._calculateProgressPosition(actor, event);
+          this._currentPosition = newPosition;
+          this._lastUpdateTime = GLib.get_monotonic_time() / 1000;
+          this._isSeeking = true;
 
-        try {
-          if (this._mprisTrackId) {
-            this._indicator._dbus.setPosition(this._mprisTrackId, newPosition);
-          } else {
-            const deltaMs = newPosition - this._currentPosition;
-            this._indicator._dbus.seek(deltaMs);
+          try {
+            if (this._mprisTrackId) {
+              this._indicator._dbus.setPosition(
+                this._mprisTrackId,
+                newPosition,
+              );
+            } else {
+              const deltaMs = newPosition - this._currentPosition;
+              this._indicator._dbus.seek(deltaMs);
+            }
+          } catch (e) {
+            logWarn("Failed to set position via DBus:", e);
           }
-        } catch (e) {
-          logWarn("Failed to set position via DBus:", e);
+          this._isDragging = false;
+
+          if (this._seekClearTimeout)
+            GLib.Source.remove(this._seekClearTimeout);
+          this._seekClearTimeout = GLib.timeout_add(
+            GLib.PRIORITY_DEFAULT,
+            1500,
+            () => {
+              this._isSeeking = false;
+              this._seekClearTimeout = null;
+              return GLib.SOURCE_REMOVE;
+            },
+          );
+
+          if (this._isPlaying) this._startProgressUpdate();
         }
-        this._isDragging = false;
-
-        if (this._seekClearTimeout) GLib.Source.remove(this._seekClearTimeout);
-        this._seekClearTimeout = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1500, () => {
-          this._isSeeking = false;
-          this._seekClearTimeout = null;
-          return GLib.SOURCE_REMOVE;
-        });
-
-        if (this._isPlaying) this._startProgressUpdate();
-      }
-      return Clutter.EVENT_STOP;
-    });
+        return Clutter.EVENT_STOP;
+      },
+    );
 
     this.container.add_child(this._progressBarContainer);
   }
@@ -344,7 +356,7 @@ export class SpotifyUI {
     const filledWidth = Math.floor(progress * barWidth);
 
     this._progressFilled.set_size(filledWidth, 4);
-    this._progressHandle.set_position(filledWidth - 6, -4);
+    this._progressHandle.set_position(filledWidth - 5, -4);
   }
 
   _buildAdditionalControls() {
@@ -611,7 +623,8 @@ export class SpotifyUI {
 
     if (metadata.url) {
       const trackId = this._extractTrackIdFromUrl(metadata.url);
-      this._mprisTrackId = metadata.trackId || "/org/mpris/MediaPlayer2/TrackList/NoTrack";
+      this._mprisTrackId =
+        metadata.trackId || "/org/mpris/MediaPlayer2/TrackList/NoTrack";
       if (trackId && trackId !== this._currentTrackId) {
         this._currentTrackId = trackId;
         await this._checkLikeStatus();
@@ -622,7 +635,6 @@ export class SpotifyUI {
       this._isLiked = false;
       this._updateLikeButtonIcon();
     }
-
   }
 
   async _checkLikeStatus() {

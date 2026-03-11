@@ -1,0 +1,7 @@
+{
+  "devDependencies": {
+    "@girs/gjs": "^4.0.0-beta.39",
+    "@girs/gnome-shell": "^49.1.0",
+    "typescript": "^5.9.3"
+  }
+}

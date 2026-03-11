@@ -1,5 +1,4 @@
 node_modules/
 package-lock.json
 resource.d.ts
-jsconfig.json
-package.json
+schemas/gschemas.compiled
