@@ -202,6 +202,24 @@ export class SpotifyUI {
     });
     this._infoBox.add_child(this._artistLabel);
 
+    // click handler ONCE --> before: everytime update() was called 
+    this._infoBoxClickId = this._infoBox.connect("button-press-event", () => {
+      if (this._currentMetadata?.url) {
+        const clipboard = St.Clipboard.get_default();
+        clipboard.set_text(St.ClipboardType.CLIPBOARD, this._currentMetadata.url);
+        this._extension.sendOSDMessage(
+          "Copied Spotify URL for " + this._currentMetadata.title,
+          "edit-copy-symbolic",
+        );
+      } else {
+        this._extension.sendOSDMessage(
+          "URL Not Found",
+          "edit-copy-symbolic",
+        );
+      }
+      return Clutter.EVENT_STOP;
+    });
+
     this._headerBox.add_child(this._infoBox);
   }
 
@@ -218,19 +236,115 @@ export class SpotifyUI {
   }
 
   _buildProgressBar() {
-    this._progressBarContainer = new St.BoxLayout({
+    this._progressBarContainer = new St.Widget({
       style_class: "spotify-progress-bar",
-      vertical: false,
-      style: "height: 4px; border-radius: 2px; margin-top: 5px;",
+      style: "height: 4px; border-radius: 2px; margin: 8px 0px 0px 0px;",
       x_expand: true,
+      reactive: true,
     });
 
     this._progressFilled = new St.Widget({
       style_class: "spotify-progress-filled",
+      height: 4,
     });
+    this._progressFilled.set_position(0, 0);
     this._progressBarContainer.add_child(this._progressFilled);
 
-    this._infoBox.add_child(this._progressBarContainer);
+    this._progressHandle = new St.Widget({
+      style_class: "spotify-progress-handle",
+      style: "width: 12px; height: 12px; border-radius: 50%; background-color: white;",
+      reactive: true,
+    });
+    this._progressHandle.set_position(-6, -4);
+    this._progressBarContainer.add_child(this._progressHandle);
+
+    this._isDragging = false;
+
+    this._progressBarContainer.connect("button-press-event", (actor, event) => {
+      this._isDragging = true;
+      this._dragStartPosition = this._currentPosition;
+      this._stopProgressUpdate();
+      this._updateFromEvent(actor, event);
+      return Clutter.EVENT_STOP;
+    });
+
+    this._progressBarContainer.connect("motion-event", (actor, event) => {
+      if (!this._isDragging) return Clutter.EVENT_PROPAGATE;
+      this._updateFromEvent(actor, event);
+      return Clutter.EVENT_STOP;
+    });
+
+    this._progressBarContainer.connect("button-release-event", (actor, event) => {
+      if (this._isDragging) {
+        const newPosition = this._calculateProgressPosition(actor, event);
+        this._currentPosition = newPosition;
+        this._lastUpdateTime = GLib.get_monotonic_time() / 1000;
+        this._isSeeking = true;
+
+        try {
+          if (this._mprisTrackId) {
+            this._indicator._dbus.setPosition(this._mprisTrackId, newPosition);
+          } else {
+            const deltaMs = newPosition - this._currentPosition;
+            this._indicator._dbus.seek(deltaMs);
+          }
+        } catch (e) {
+          logWarn("Failed to set position via DBus:", e);
+        }
+        this._isDragging = false;
+
+        if (this._seekClearTimeout) GLib.Source.remove(this._seekClearTimeout);
+        this._seekClearTimeout = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1500, () => {
+          this._isSeeking = false;
+          this._seekClearTimeout = null;
+          return GLib.SOURCE_REMOVE;
+        });
+
+        if (this._isPlaying) this._startProgressUpdate();
+      }
+      return Clutter.EVENT_STOP;
+    });
+
+    this.container.add_child(this._progressBarContainer);
+  }
+
+  _calculateProgressPosition(actor, event) {
+    if (this._duration <= 0) return 0;
+
+    const [eventX] = event.get_coords();
+    const [actorX] = actor.get_transformed_position();
+    const barWidth = actor.width;
+    const clickX = eventX - actorX;
+
+    const progress = Math.max(0, Math.min(1, clickX / barWidth));
+    return Math.floor(progress * this._duration);
+  }
+
+  _updateFromEvent(actor, event) {
+    const newPosition = this._calculateProgressPosition(actor, event);
+    this._currentPosition = newPosition;
+    this._updateProgressBar();
+  }
+
+  _onProgressBarDragged(actor, event) {
+    if (this._duration <= 0) return;
+
+    const newPosition = this._calculateProgressPosition(actor, event);
+
+    // update ui
+    this._currentPosition = newPosition;
+    this._updateProgressBar();
+  }
+
+  _updateProgressBar() {
+    if (this._duration <= 0) return;
+
+    const progress = Math.min(this._currentPosition / this._duration, 1);
+    const barWidth = this._progressBarContainer.width;
+    const filledWidth = Math.floor(progress * barWidth);
+
+    this._progressFilled.set_size(filledWidth, 4);
+    this._progressHandle.set_position(filledWidth - 6, -4);
   }
 
   _buildAdditionalControls() {
@@ -485,6 +599,9 @@ export class SpotifyUI {
   async update(metadata) {
     if (!metadata?.success) return;
 
+    await this._checkSpotifyConnection();
+    this._currentMetadata = metadata;
+
     this._updateText(metadata);
     this._updateProgress(metadata);
     this._updatePlayState(metadata);
@@ -494,6 +611,7 @@ export class SpotifyUI {
 
     if (metadata.url) {
       const trackId = this._extractTrackIdFromUrl(metadata.url);
+      this._mprisTrackId = metadata.trackId || "/org/mpris/MediaPlayer2/TrackList/NoTrack";
       if (trackId && trackId !== this._currentTrackId) {
         this._currentTrackId = trackId;
         await this._checkLikeStatus();
@@ -505,21 +623,6 @@ export class SpotifyUI {
       this._updateLikeButtonIcon();
     }
 
-    this._infoBox.connect("button-press-event", () => {
-      if (metadata.url) {
-        const clipboard = St.Clipboard.get_default();
-        clipboard.set_text(St.ClipboardType.CLIPBOARD, metadata.url);
-        this._extension.sendOSDMessage(
-          "Copied Spotify URL for " + metadata.title,
-          "edit-copy-symbolic",
-        );
-      } else {
-        this._extension.sendOSDMessage(
-          "URL Not Found for " + metadata.title,
-          "edit-copy-symbolic",
-        );
-      }
-    });
   }
 
   async _checkLikeStatus() {
@@ -578,9 +681,12 @@ export class SpotifyUI {
     const position = metadata.position_ms || 0;
     const duration = metadata.duration_ms || 0;
 
-    this._currentPosition = position;
     this._duration = duration;
-    this._lastUpdateTime = GLib.get_monotonic_time() / 1000;
+
+    if (!this._isSeeking) {
+      this._currentPosition = position;
+      this._lastUpdateTime = GLib.get_monotonic_time() / 1000;
+    }
 
     this._updateProgressBar();
 
@@ -593,9 +699,16 @@ export class SpotifyUI {
     if (this._duration <= 0) return;
 
     const progress = Math.min(this._currentPosition / this._duration, 1);
-    const barWidth = this._infoBox.width;
+    const barWidth = this._progressBarContainer.width;
 
     this._progressFilled.width = Math.floor(progress * barWidth);
+
+    if (this._progressHandle) {
+      this._progressHandle.set_position(
+        Math.floor(progress * barWidth) - 6,
+        -4,
+      );
+    }
   }
 
   _startProgressUpdate() {
@@ -870,6 +983,16 @@ export class SpotifyUI {
 
   destroy() {
     this._stopProgressUpdate();
+
+    if (this._infoBoxClickId) {
+      this._infoBox.disconnect(this._infoBoxClickId);
+      this._infoBoxClickId = null;
+    }
+
+    if (this._seekClearTimeout) {
+      GLib.Source.remove(this._seekClearTimeout);
+      this._seekClearTimeout = null;
+    }
 
     if (this._controlsOrderChangedId) {
       this._settings.disconnect(this._controlsOrderChangedId);
