@@ -19,6 +19,7 @@ It is designed to be theme-aware, and customizable\*
 - **Local Statistics**: Keep track of your listening habits.
 - **Track Downloading**: Download and save tracks to your computer.
 - **Spotify Connection**: Connects to your Spotify account for managing liked library.
+- **Ad mute**: Mutes Spotify's volume when an advertisement is playing.
 
 ---
 
