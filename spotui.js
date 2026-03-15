@@ -202,7 +202,6 @@ export class SpotifyUI {
     });
     this._infoBox.add_child(this._artistLabel);
 
-    // click handler ONCE --> before: everytime update() was called
     this._infoBoxClickId = this._infoBox.connect("button-press-event", () => {
       if (this._currentMetadata?.url) {
         const clipboard = St.Clipboard.get_default();
@@ -375,6 +374,7 @@ export class SpotifyUI {
       download: this._buildDownloadButton(),
       settings: this._buildSettingsButton(),
       like: this._buildLikeButton(),
+      close: this._buildCloseButton(),
     };
 
     this._rebuildAdditionalControls();
@@ -391,11 +391,11 @@ export class SpotifyUI {
     this._additionalControls.remove_all_children();
 
     const order = this._settings.get_strv("additional-controls-order") || [
-      "shuffle",
-      "toggle",
-      "spacer",
-      "download",
       "settings",
+      "download",
+      "spacer",
+      "close",
+      "spotify",
     ];
 
     for (const key of order) {
@@ -442,6 +442,18 @@ export class SpotifyUI {
 
     this._spotifyToggleButton.connect("clicked", () => toggleSpotifyWindow());
     return this._spotifyToggleButton;
+  }
+
+  _buildCloseButton() {
+    this._closeButton = new St.Button({
+      style_class: "spotify-close-button",
+      child: new St.Icon({
+        icon_name: "process-stop-symbolic",
+        icon_size: 16,
+      }),
+    });
+    this._closeButton.connect("clicked", () => toggleSpotifyWindow("close"));
+    return this._closeButton;
   }
 
   _buildSettingsButton() {
@@ -954,6 +966,7 @@ export class SpotifyUI {
     this._downloadButton.style = `color: ${readableTextColor};`;
     this._spotifyToggleButton.style = `color: ${readableTextColor};`;
     this._likeButton.style = `color: ${readableTextColor};`;
+    this._closeButton.style = `color: ${readableTextColor};`;
 
     this._titleLabel.style = `color: ${readableTextColor};`;
     this._artistLabel.style = `color: ${readableTextColor};`;

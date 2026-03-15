@@ -17,6 +17,7 @@ const BUTTONS = {
   download: "Download Track",
   settings: "Open Settings",
   like: "Toggle Like",
+  close: "Close Spotify",
 };
 
 export function buildGeneralPage(window, settings, metadata) {

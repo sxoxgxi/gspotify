@@ -60,6 +60,11 @@ export function toggleSpotifyWindow(action = "toggle") {
           }
           break;
 
+        case "close":
+          win.delete(global.get_current_time());
+          logInfo("Spotify window closed");
+          break;
+
         case "toggle":
         default:
           if (isMinimized) {
