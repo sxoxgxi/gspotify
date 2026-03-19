@@ -10,6 +10,6 @@
       "@girs/gnome-shell"
     ]
   },
-  "include": ["**/*.js", "**/*.d.ts"]
+  "include": ["**/*.js", "**/*.d.ts"],
   "exclude": ["node_modules"]
 }
