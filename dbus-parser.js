@@ -209,6 +209,7 @@ export class SpotifyDBus {
         artworkUrl: "",
         duration_ms: 0,
         position_ms: 0,
+        isAdvertisement: false,
         isPlaying: false,
         success: false,
       };
@@ -259,6 +260,9 @@ export class SpotifyDBus {
         logWarn(e, "Failed to fetch Position via Properties.Get");
       }
 
+      const url = metadata["xesam:url"] ? metadata["xesam:url"].unpack() : "";
+      const isAdvertisement = /\/ad\//.test(url);
+
       return {
         title: metadata["xesam:title"] ? metadata["xesam:title"].unpack() : "",
         artist: metadata["xesam:artist"]
@@ -268,7 +272,7 @@ export class SpotifyDBus {
         artworkUrl: metadata["mpris:artUrl"]
           ? metadata["mpris:artUrl"].unpack()
           : "",
-        url: metadata["xesam:url"] ? metadata["xesam:url"].unpack() : "",
+        url,
         duration_ms: metadata["mpris:length"]
           ? metadata["mpris:length"].unpack() / 1000
           : 0,
@@ -276,6 +280,7 @@ export class SpotifyDBus {
         isPlaying: this.proxy.PlaybackStatus
           ? this.proxy.PlaybackStatus === "Playing"
           : false,
+        isAdvertisement,
         shuffle: this.getShuffle(),
         // include the mpris track object path
         trackId: metadata["mpris:trackid"]
@@ -292,6 +297,7 @@ export class SpotifyDBus {
         artworkUrl: "",
         duration_ms: 0,
         position_ms: 0,
+        isAdvertisement: false,
         isPlaying: false,
         success: false,
       };
@@ -472,7 +478,7 @@ export class SpotifyDBus {
     }
   }
 
-  // needed for clickable progress-bar 
+  // needed for clickable progress-bar
   seek(positionMs) {
     if (!this.proxy) {
       logWarn("DBus proxy not available for seek");

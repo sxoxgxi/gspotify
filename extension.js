@@ -105,7 +105,7 @@ const SpotifyIndicator = GObject.registerClass(
         metadata.position_ms = overridePosition.position_ms;
       }
 
-      const isAd = metadata.title && metadata.title.includes("Advertisement");
+      const isAd = metadata.isAdvertisement;
 
       if (muteAd) {
         if (isAd && !this._adMuted) {
