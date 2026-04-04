@@ -93,7 +93,7 @@
     
     <key name="additional-controls-order" type="as">
       <default>
-        ['settings', 'download', 'spacer', 'close', 'spotify']
+        ['settings', 'download', 'spacer', 'spotify', 'close']
       </default>
       <summary>Additional Controls Order</summary>
       <description>Order of additional controls</description>

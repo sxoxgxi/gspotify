@@ -394,8 +394,8 @@ export class SpotifyUI {
       "settings",
       "download",
       "spacer",
-      "close",
       "spotify",
+      "close",
     ];
 
     for (const key of order) {
