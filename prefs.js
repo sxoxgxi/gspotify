@@ -18,5 +18,7 @@ export default class GSpotifyPreferences extends ExtensionPreferences {
     window.add(spotifyPage);
     const donatePage = buildDonatePage(window, this.path);
     window.add(donatePage);
+
+    window.set_search_enabled(true);
   }
 }
