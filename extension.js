@@ -174,7 +174,7 @@ const SpotifyIndicator = GObject.registerClass(
 const IconIndicator = GObject.registerClass(
   class IconIndicator extends PanelMenu.Button {
     _init(extension, panelPosition = 0) {
-      super._init(0.5, "Icon Indicator", false);
+      super._init(0.5, "Icon Indicator", true);
       this._extension = extension;
       this._panelPosition = panelPosition;
 
