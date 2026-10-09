@@ -48,7 +48,7 @@ export class SpotifyUI {
   _buildUI() {
     this.container = new St.BoxLayout({
       style_class: "spotify-card",
-      vertical: true,
+      orientation: Clutter.Orientation.VERTICAL,
       width: this.useFixedWidth ? this.fixedWidth : -1,
       x_expand: !this.useFixedWidth,
       y_expand: true,
@@ -79,7 +79,7 @@ export class SpotifyUI {
   _buildHeader() {
     this._headerBox = new St.BoxLayout({
       style_class: "spotify-header",
-      vertical: false,
+      orientation: Clutter.Orientation.HORIZONTAL,
       x_align: Clutter.ActorAlign.FILL,
       x_expand: true,
     });
@@ -130,7 +130,7 @@ export class SpotifyUI {
     this._infoTipBox = new St.BoxLayout({
       reactive: true,
       track_hover: true,
-      vertical: true,
+      orientation: Clutter.Orientation.VERTICAL,
     });
 
     INFO_TIPS.forEach((tip, index) => {
@@ -176,7 +176,7 @@ export class SpotifyUI {
       : -1;
     this._infoBox = new St.BoxLayout({
       style_class: "spotify-info-box",
-      vertical: true,
+      orientation: Clutter.Orientation.VERTICAL,
       width: infoBoxWidth,
       x_expand: !this.useFixedWidth,
       x_align: Clutter.ActorAlign.CENTER,
@@ -361,7 +361,7 @@ export class SpotifyUI {
   _buildAdditionalControls() {
     this._additionalControls = new St.BoxLayout({
       style_class: "spotify-additional-controls",
-      vertical: false,
+      orientation: Clutter.Orientation.HORIZONTAL,
       x_align: Clutter.ActorAlign.FILL,
     });
 
