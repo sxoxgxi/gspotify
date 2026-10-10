@@ -63,7 +63,7 @@ export class SpotifyDBus {
         null,
       );
 
-      this.proxy.connect(
+      this._gPropertiesChangedId = this.proxy.connect(
         "g-properties-changed",
         (proxy, changed, invalidated) => {
           const props = changed.deepUnpack();
@@ -71,15 +71,19 @@ export class SpotifyDBus {
             if (this.collectStats) {
               this._handleTrackChange(props);
             }
-            this.panelButton.updateLabel();
+            if (this.panelButton?.updateLabel) {
+              this.panelButton.updateLabel();
+            }
           }
         },
       );
 
-      this.proxy.connectSignal("Seeked", (proxy, sender, [position]) => {
+      this._seekedSignalId = this.proxy.connectSignal("Seeked", (proxy, sender, [position]) => {
         this._lastPosition = position / 1000;
         this._lastUpdateTime = Date.now();
-        this.panelButton.updateLabel({ position_ms: position / 1000 });
+        if (this.panelButton?.updateLabel) {
+          this.panelButton.updateLabel({ position_ms: position / 1000 });
+        }
       });
     } catch (e) {
       logWarn("Failed to create DBus proxy");
@@ -134,12 +138,31 @@ export class SpotifyDBus {
     this._currentTrackPlayed = true;
   }
 
+  _stopPlayTimeTracking() {
+    if (this._playTimeInterval) {
+      GLib.Source.remove(this._playTimeInterval);
+      this._playTimeInterval = null;
+    }
+  }
+
   _startPlayTimeTracking() {
+    this._stopPlayTimeTracking();
+
     this._playTimeInterval = GLib.timeout_add_seconds(
       GLib.PRIORITY_DEFAULT,
       5,
       () => {
-        this._updatePlayTime();
+        try {
+          this._updatePlayTime();
+        } catch (e) {
+          if (
+            (e.matches && e.matches(Gio.DBusError, Gio.DBusError.SERVICE_UNKNOWN)) ||
+            (e.message && e.message.includes("ServiceUnknown"))
+          ) {
+            this._stopPlayTimeTracking();
+            return GLib.SOURCE_REMOVE;
+          }
+        }
         return GLib.SOURCE_CONTINUE;
       },
     );
@@ -175,6 +198,9 @@ export class SpotifyDBus {
   }
 
   _onCollectStatsChanged() {
+    if (!this.panelButton?._extension?._settings) return;
+
+
     this.collectStats =
       this.panelButton._extension._settings.get_boolean("collect-stats");
 
@@ -186,6 +212,8 @@ export class SpotifyDBus {
         this._startPlayTimeTracking();
       }
     } else {
+      this._stopPlayTimeTracking();
+
       if (this._playTimeInterval) {
         GLib.Source.remove(this._playTimeInterval);
         this._playTimeInterval = null;
@@ -257,7 +285,14 @@ export class SpotifyDBus {
           position_ms = 0;
         }
       } catch (e) {
-        logWarn(e, "Failed to fetch Position via Properties.Get");
+        if (
+          (e.matches && e.matches(Gio.DBusError, Gio.DBusError.SERVICE_UNKNOWN)) ||
+          (e.message && e.message.includes("ServiceUnknown"))
+        ) {
+          this._stopPlayTimeTracking();
+        } else {
+          logWarn(e, "Failed to fetch Position via Properties.Get");
+        }
       }
 
       const url = metadata["xesam:url"] ? metadata["xesam:url"].unpack() : "";
@@ -289,6 +324,12 @@ export class SpotifyDBus {
         success: true,
       };
     } catch (e) {
+      if (
+        (e.matches && e.matches(Gio.DBusError, Gio.DBusError.SERVICE_UNKNOWN)) ||
+        (e.message && e.message.includes("ServiceUnknown"))
+      ) {
+        this._stopPlayTimeTracking();
+      }
       return {
         title: "",
         artist: "",
@@ -337,7 +378,9 @@ export class SpotifyDBus {
           logWarn(`Unknown control action: ${action}`);
           return;
       }
-      this.panelButton.updateLabel();
+      if (this.panelButton?.updateLabel) {
+        this.panelButton.updateLabel();
+      }
     } catch (e) {
       logWarn(`Failed to execute control action: ${action}`);
     }
@@ -373,7 +416,9 @@ export class SpotifyDBus {
         -1,
         null,
       );
-      this.panelButton.updateLabel();
+      if (this.panelButton?.updateLabel) {
+        this.panelButton.updateLabel();
+      }
       return newValue;
     } catch (e) {
       logWarn("Failed to toggle Shuffle");
@@ -462,7 +507,11 @@ export class SpotifyDBus {
 
   destroy() {
     if (this._settingsChangedId) {
-      this.panelButton._extension._settings.disconnect(this._settingsChangedId);
+      if (this.panelButton?._extension?._settings) {
+        this.panelButton._extension._settings.disconnect(
+          this._settingsChangedId,
+        );
+      }
       this._settingsChangedId = null;
     }
 
@@ -472,10 +521,21 @@ export class SpotifyDBus {
       });
     }
 
-    if (this._playTimeInterval) {
-      GLib.Source.remove(this._playTimeInterval);
-      this._playTimeInterval = null;
+    this._stopPlayTimeTracking();
+
+    if (this.proxy) {
+      if (this._gPropertiesChangedId) {
+        this.proxy.disconnect(this._gPropertiesChangedId);
+        this._gPropertiesChangedId = null;
+      }
+      if (this._seekedSignalId) {
+        this.proxy.disconnectSignal(this._seekedSignalId);
+        this._seekedSignalId = null;
+      }
+      this.proxy = null;
     }
+
+    this.panelButton = null;
   }
 
   // needed for clickable progress-bar

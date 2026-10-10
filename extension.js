@@ -25,7 +25,6 @@ const SpotifyIndicator = GObject.registerClass(
       super._init(0.5, "Spotify Indicator", false);
       this._extension = extension;
       this._panelPosition = panelPosition;
-      this._dbus = new SpotifyDBus(this);
       this._volumeTimeout = null;
       this._adMuted = false;
       this._volumeBeforeAd = null;
@@ -42,6 +41,8 @@ const SpotifyIndicator = GObject.registerClass(
       });
       this.add_child(this._label);
       this.menu.box.add_child(this._ui.container);
+
+      this._dbus = new SpotifyDBus(this);
 
       this.updateLabel();
       this.connect("scroll-event", this._handleScrollEvent.bind(this));
@@ -91,9 +92,10 @@ const SpotifyIndicator = GObject.registerClass(
     }
 
     updateLabel(overridePosition) {
-      if (!this._dbus) {
+      if (!this._dbus || !this._label || !this._extension?._settings) {
         return;
       }
+      
       const labelLength = this._extension._settings.get_int("label-length");
       const showArtist = this._extension._settings.get_boolean("show-artist");
       const muteAd = this._extension._settings.get_boolean(
@@ -149,7 +151,7 @@ const SpotifyIndicator = GObject.registerClass(
     }
 
     destroy() {
-      if (this._adMuted && this._volumeBeforeAd !== null) {
+      if (this._adMuted && this._volumeBeforeAd !== null && this._dbus) {
         this._dbus.setVolume(this._volumeBeforeAd);
       }
 
@@ -157,14 +159,24 @@ const SpotifyIndicator = GObject.registerClass(
         this._dbus.destroy();
         this._dbus = null;
       }
-      this._ui.destroy();
-      this._ui = null;
-      this._spotdl.destroy();
 
       if (this._volumeTimeout) {
         GLib.Source.remove(this._volumeTimeout);
         this._volumeTimeout = null;
       }
+
+      if (this._ui) {
+        this._ui.destroy();
+        this._ui = null;
+      }
+
+      if (this._spotdl) {
+        this._spotdl.destroy();
+        this._spotdl = null;
+      }
+
+      this._label = null;
+      this._extension = null;
 
       super.destroy();
     }
