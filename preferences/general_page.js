@@ -1,5 +1,7 @@
 import Adw from "gi://Adw";
 import Gio from "gi://Gio";
+import Gdk from "gi://Gdk";
+import GObject from "gi://GObject";
 import Gtk from "gi://Gtk";
 import GLib from "gi://GLib";
 
@@ -214,22 +216,47 @@ export function buildGeneralPage(window, settings, metadata) {
   generalGroup.add(minimizedSpotifyRow);
 
   // Controls Group
-  const DEFAULT_ORDER = ["shuffle", "toggle", "spacer", "download", "settings"];
-
   const allButtons = Object.keys(BUTTONS);
 
   let order = settings.get_strv("additional-controls-order");
-  if (!order.length) {
-    order = [...DEFAULT_ORDER];
-    settings.set_strv("additional-controls-order", order);
-  }
 
   const orderGroup = new Adw.PreferencesGroup({
     title: "Additional Controls",
-    description: "Configure button order and number of buttons",
+    description:
+      "Drag the handles to reorder controls, or focus a handle and press Alt+Up/Down",
   });
 
   const rows = [];
+  let draggedIndex = null;
+  const dragToken = GLib.uuid_string_random();
+  const provider = new Gtk.CssProvider();
+  provider.load_from_string(`
+    .gspotify-controls .drop-before { box-shadow: inset 0 2px @accent_color; }
+    .gspotify-controls .drop-after { box-shadow: inset 0 -2px @accent_color; }
+  `);
+  orderGroup.add_css_class("gspotify-controls");
+  Gtk.StyleContext.add_provider_for_display(
+    orderGroup.get_display(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
+  );
+  window.connect("close-request", () => {
+    Gtk.StyleContext.remove_provider_for_display(orderGroup.get_display(), provider);
+    return false;
+  });
+
+  function clearDropIndicators() {
+    for (const row of rows) {
+      row.remove_css_class("drop-before");
+      row.remove_css_class("drop-after");
+    }
+  }
+
+  function moveControl(from, to) {
+    if (from === to || to < 0 || to >= order.length) return;
+    const newOrder = [...order];
+    const [control] = newOrder.splice(from, 1);
+    newOrder.splice(to, 0, control);
+    saveOrder(newOrder);
+  }
 
   function showSwapToast(message = "Button swapped with existing position") {
     const toast = new Adw.Toast({ title: message, timeout: 3 });
@@ -250,10 +277,13 @@ export function buildGeneralPage(window, settings, metadata) {
   function saveOrder(newOrder) {
     order = newOrder;
     settings.set_strv("additional-controls-order", order);
-    updateAllRows();
+    if (rows.length !== order.length) rebuildRows();
+    else updateAllRows();
   }
 
   function rebuildRows() {
+    draggedIndex = null;
+    orderGroup.remove(addButton);
     for (const row of rows) {
       orderGroup.remove(row);
     }
@@ -262,13 +292,83 @@ export function buildGeneralPage(window, settings, metadata) {
     order.forEach((key, index) => {
       addRow(index, key);
     });
+    orderGroup.add(addButton);
   }
 
   function addRow(index, value = "none") {
     const row = new Adw.ComboRow({
       title: `Position ${index + 1}`,
-      subtitle: "Select control",
     });
+
+    const handle = new Gtk.Button({
+      icon_name: "list-drag-handle-symbolic",
+      valign: Gtk.Align.CENTER,
+      tooltip_text: "Drag to reorder; Alt+Up/Down to move with the keyboard",
+      css_classes: ["flat"],
+    });
+    handle.update_property(
+      [Gtk.AccessibleProperty.LABEL],
+      [`Reorder position ${index + 1}`],
+    );
+    handle.set_cursor_from_name("grab");
+    row.add_prefix(handle);
+
+    const keys = new Gtk.EventControllerKey();
+    keys.connect("key-pressed", (_controller, keyval, _keycode, state) => {
+      if (!(state & Gdk.ModifierType.ALT_MASK)) return false;
+      const delta = keyval === Gdk.KEY_Up ? -1 : keyval === Gdk.KEY_Down ? 1 : 0;
+      if (!delta) return false;
+      const destination = index + delta;
+      if (destination >= 0 && destination < rows.length) {
+        moveControl(index, destination);
+        rows[destination]._handle.grab_focus();
+      }
+      return true;
+    });
+    handle.add_controller(keys);
+    row._handle = handle;
+
+    const source = new Gtk.DragSource({ actions: Gdk.DragAction.MOVE });
+    source.connect("prepare", () => {
+      draggedIndex = index;
+      return Gdk.ContentProvider.new_for_value(dragToken);
+    });
+    source.connect("drag-begin", () => {
+      handle.set_cursor_from_name("grabbing");
+      source.set_icon(new Gtk.WidgetPaintable({ widget: row }), 0, 0);
+    });
+    source.connect("drag-end", () => {
+      draggedIndex = null;
+      handle.set_cursor_from_name("grab");
+      clearDropIndicators();
+    });
+    handle.add_controller(source);
+
+    const target = Gtk.DropTarget.new(GObject.TYPE_STRING, Gdk.DragAction.MOVE);
+    target.connect("accept", (_target, drop) =>
+      draggedIndex !== null &&
+      drop.get_drag() === rows[draggedIndex]._dragSource.get_drag(),
+    );
+    const showDropIndicator = (_target, _x, y) => {
+      clearDropIndicators();
+      if (draggedIndex === null) return 0;
+      row.add_css_class(y < row.get_height() / 2 ? "drop-before" : "drop-after");
+      return Gdk.DragAction.MOVE;
+    };
+    target.connect("enter", showDropIndicator);
+    target.connect("motion", showDropIndicator);
+    target.connect("leave", clearDropIndicators);
+    target.connect("drop", (_target, value, _x, y) => {
+      clearDropIndicators();
+      if (value !== dragToken || draggedIndex === null) return false;
+      const insertion = index + (y >= row.get_height() / 2 ? 1 : 0);
+      const destination = insertion > draggedIndex ? insertion - 1 : insertion;
+      moveControl(draggedIndex, destination);
+      rows[destination]._handle.grab_focus();
+      return true;
+    });
+    row._dragSource = source;
+    row.add_controller(target);
 
     const model = new Gtk.StringList();
     for (const key of allButtons) {
@@ -312,11 +412,9 @@ export function buildGeneralPage(window, settings, metadata) {
     removeButton.connect("clicked", () => {
       order.splice(index, 1);
       saveOrder([...order]);
-      rebuildRows();
     });
 
     row.add_suffix(removeButton);
-    row.activatable_widget = removeButton;
 
     rows.push(row);
     orderGroup.add(row);
@@ -334,7 +432,6 @@ export function buildGeneralPage(window, settings, metadata) {
   addButton.add_suffix(addIcon);
   addButton.connect("activated", () => {
     saveOrder([...order, "none"]);
-    rebuildRows();
   });
 
   orderGroup.add(addButton);
@@ -343,7 +440,8 @@ export function buildGeneralPage(window, settings, metadata) {
 
   settings.connect("changed::additional-controls-order", () => {
     order = settings.get_strv("additional-controls-order");
-    updateAllRows();
+    if (rows.length !== order.length) rebuildRows();
+    else updateAllRows();
   });
 
   generalPage.add(orderGroup);
