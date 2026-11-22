@@ -27,6 +27,9 @@ export class SpotifyUI {
     this._currentTrackId = null;
     this._isLiked = false;
     this._isSpotifyConnected = false;
+    this._likeRevision = 0;
+    this._likeBusy = false;
+    this._destroyed = false;
 
     this.useFixedWidth = extension._settings.get_boolean("use-fixed-width");
     this.fixedWidth = extension._settings.get_int("ui-width");
@@ -514,44 +517,54 @@ export class SpotifyUI {
     }
   }
 
-  async _onLikeButtonClicked() {
-    logInfo("Spotify Connection Status:", this._isSpotifyConnected);
-    if (!this._isSpotifyConnected) {
-      this._extension.sendOSDMessage(
-        "Connect Spotify account from extension's setting to like songs",
-        "dialog-warning-symbolic",
-      );
+  _likeErrorMessage(error) {
+    switch (error.code) {
+      case "not-authenticated":
+      case "missing-client-id":
+        return "Connect Spotify in extension settings to like songs";
+      case "refresh-failed":
+        return "Spotify authentication could not be renewed. Check connection in settings";
+      case "unauthorized":
+        return "Spotify rejected authentication (401). Reconnect in settings";
+      case "forbidden":
+        return "Spotify denied library access (403). Check app access and library permissions";
+      case "rate-limited":
+        return "Spotify request limit reached (429). Try again later";
+      case "network":
+        return "Could not reach Spotify. Check your connection";
+      default:
+        return "Could not update Liked Songs. Try again later";
     }
+  }
 
-    if (!this._currentTrackId) {
-      this._extension.sendOSDMessage(
-        "No track playing",
-        "dialog-error-symbolic",
-      );
+  async _onLikeButtonClicked() {
+    if (this._destroyed || this._likeBusy) return;
+    const trackId = this._currentTrackId;
+    if (!trackId) {
+      this._extension.sendOSDMessage("No track playing", "dialog-error-symbolic");
       return;
     }
-
+    const revision = ++this._likeRevision;
+    this._likeBusy = true;
+    this._likeButton.reactive = false;
     try {
-      this._likeButton.reactive = false;
-      const newLikedState = await toggleLike(this._currentTrackId);
+      // The helper checks current credentials; a cached connection flag may be stale.
+      const newLikedState = await toggleLike(trackId);
+      if (this._destroyed || revision !== this._likeRevision) return;
+      this._isSpotifyConnected = true;
       this._isLiked = newLikedState;
-
       this._updateLikeButtonIcon();
-      const message = newLikedState
-        ? "Added to Liked Songs"
-        : "Removed from Liked Songs";
-      const icon = newLikedState
-        ? "emote-love-symbolic"
-        : "list-remove-symbolic";
-      this._extension.sendOSDMessage(message, icon);
-    } catch (e) {
-      logWarn("Failed to toggle like state:", e);
       this._extension.sendOSDMessage(
-        "Access token may have expired. Reconnect in settings",
-        "dialog-error-symbolic",
+        newLikedState ? "Added to Liked Songs" : "Removed from Liked Songs",
+        newLikedState ? "emote-love-symbolic" : "list-remove-symbolic",
       );
+    } catch (e) {
+      if (this._destroyed || revision !== this._likeRevision) return;
+      logWarn("Failed to toggle like state:", e.code || "unknown", e.status || "");
+      this._extension.sendOSDMessage(this._likeErrorMessage(e), "dialog-error-symbolic");
     } finally {
-      this._likeButton.reactive = true;
+      this._likeBusy = false;
+      if (!this._destroyed) this._likeButton.reactive = true;
     }
   }
 
@@ -623,7 +636,7 @@ export class SpotifyUI {
   async update(metadata) {
     if (!metadata?.success) return;
 
-    await this._checkSpotifyConnection();
+    if (this._destroyed) return;
     this._currentMetadata = metadata;
 
     this._updateText(metadata);
@@ -633,44 +646,42 @@ export class SpotifyUI {
     this._shuffleState = metadata.shuffle;
     this._updateShuffleButton();
 
-    if (metadata.url) {
-      const trackId = this._extractTrackIdFromUrl(metadata.url);
-      this._mprisTrackId =
-        metadata.trackId || "/org/mpris/MediaPlayer2/TrackList/NoTrack";
-      if (trackId && trackId !== this._currentTrackId) {
-        this._currentTrackId = trackId;
-        await this._checkLikeStatus();
-        this._updateLikeButtonIcon();
-      }
-    } else {
-      this._currentTrackId = null;
+    const trackId = this._extractTrackIdFromUrl(metadata.url);
+    const trackChanged = trackId !== this._currentTrackId;
+    this._mprisTrackId = metadata.trackId || "/org/mpris/MediaPlayer2/TrackList/NoTrack";
+    if (trackChanged) {
+      this._currentTrackId = trackId;
+      this._likeRevision++;
+    }
+    if (!trackId) {
       this._isLiked = false;
       this._updateLikeButtonIcon();
+      return;
+    }
+    const revision = this._likeRevision;
+    const wasConnected = this._isSpotifyConnected;
+    await this._checkSpotifyConnection();
+    if (this._destroyed || revision !== this._likeRevision) return;
+    if (trackChanged || (!this._likeBusy && !wasConnected && this._isSpotifyConnected)) {
+      await this._checkLikeStatus();
     }
   }
 
   async _checkLikeStatus() {
-    if (!this._currentTrackId) {
-      return false;
-    }
-
-    if (!this._isSpotifyConnected) {
-      this._isLiked = false;
-      this._updateLikeButtonIcon();
-      return false;
-    }
-
+    if (this._destroyed || !this._currentTrackId) return;
+    const trackId = this._currentTrackId;
+    const revision = ++this._likeRevision;
     try {
-      this._isLiked = await isTrackLiked(this._currentTrackId);
+      const liked = await isTrackLiked(trackId);
+      if (this._destroyed || revision !== this._likeRevision) return;
+      this._isLiked = liked;
       this._updateLikeButtonIcon();
-      return this._isLiked;
+      return liked;
     } catch (e) {
-      logWarn("Failed to check like status:", e);
-
-      this._isSpotifyConnected = false;
-      this._isLiked = false;
-      this._updateLikeButtonIcon();
-      return false;
+      // An unavailable status is unknown, never evidence that a track is unliked.
+      if (!this._destroyed && revision === this._likeRevision) {
+        logWarn("Failed to check like status:", e.code || "unknown", e.status || "");
+      }
     }
   }
 
@@ -1007,6 +1018,8 @@ export class SpotifyUI {
   }
 
   destroy() {
+    this._destroyed = true;
+    this._likeRevision++;
     this._stopProgressUpdate();
 
     if (this._infoBoxClickId) {
