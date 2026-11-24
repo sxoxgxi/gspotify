@@ -1,7 +1,7 @@
 import Soup from "gi://Soup";
 import GLib from "gi://GLib";
-import { logInfo } from "./utils.js";
-import { getValidAccessToken } from "./spotify-auth.js";
+import { logInfo, logWarn } from "./utils.js";
+import { getValidAccessToken, SpotifyError } from "./spotify-auth.js";
 
 const API_ENDPOINT = "https://api.spotify.com/v1";
 
@@ -55,118 +55,68 @@ export async function isSpotifyLoggedIn() {
   }
 }
 
-export async function isTrackLiked(trackId) {
+async function libraryRequest(method, trackId) {
+  if (typeof trackId !== "string" || !/^[a-zA-Z0-9]+$/.test(trackId)) {
+    throw new SpotifyError("invalid-track");
+  }
   const accessToken = await getValidAccessToken();
+  if (!accessToken) throw new SpotifyError("not-authenticated");
+
   const session = new Soup.Session();
   activeSessions.add(session);
-
-  const url = `${API_ENDPOINT}/me/tracks/contains?ids=${trackId}`;
-  const msg = Soup.Message.new("GET", url);
+  const path = method === "GET" ? "/me/library/contains" : "/me/library";
+  const uri = encodeURIComponent(`spotify:track:${trackId}`);
+  const msg = Soup.Message.new(method, `${API_ENDPOINT}${path}?uris=${uri}`);
   msg.get_request_headers().append("Authorization", `Bearer ${accessToken}`);
 
   try {
-    const response = await new Promise((resolve, reject) => {
-      session.send_and_read_async(
-        msg,
-        GLib.PRIORITY_DEFAULT,
-        null,
-        (_session, result) => {
+    let response;
+    try {
+      response = await new Promise((resolve, reject) => {
+        session.send_and_read_async(msg, GLib.PRIORITY_DEFAULT, null, (_session, result) => {
           try {
-            const bytes = session.send_and_read_finish(result);
-            resolve(bytes);
+            resolve(session.send_and_read_finish(result));
           } catch (e) {
             reject(e);
           }
-        },
-      );
-    });
-
-    const data = JSON.parse(new TextDecoder().decode(response.get_data()));
-    return data[0] === true;
+        });
+      });
+    } catch {
+      throw new SpotifyError("network");
+    }
+    const status = msg.get_status();
+    if (status !== 200) {
+      const code = { 401: "unauthorized", 403: "forbidden", 429: "rate-limited" }[status] || "http";
+      const retryAfter = status === 429
+        ? msg.get_response_headers().get_one("Retry-After") : null;
+      throw new SpotifyError(code, status, retryAfter);
+    }
+    if (method !== "GET") return true;
+    let data;
+    try {
+      data = JSON.parse(new TextDecoder().decode(response.get_data()));
+    } catch {
+      throw new SpotifyError("invalid-response");
+    }
+    if (!Array.isArray(data) || data.length !== 1 || typeof data[0] !== "boolean") {
+      throw new SpotifyError("invalid-response");
+    }
+    return data[0];
   } finally {
     activeSessions.delete(session);
   }
+}
+
+export async function isTrackLiked(trackId) {
+  return libraryRequest("GET", trackId);
 }
 
 export async function likeTrack(trackId) {
-  const accessToken = await getValidAccessToken();
-  const session = new Soup.Session();
-  activeSessions.add(session);
-
-  const url = `${API_ENDPOINT}/me/tracks?ids=${trackId}`;
-  const msg = Soup.Message.new("PUT", url);
-  msg.get_request_headers().append("Authorization", `Bearer ${accessToken}`);
-  msg.get_request_headers().append("Content-Type", "application/json");
-
-  const bodyBytes = new TextEncoder().encode("{}");
-  const bytes = new GLib.Bytes(bodyBytes);
-  msg.set_request_body_from_bytes("application/json", bytes);
-
-  try {
-    const response = await new Promise((resolve, reject) => {
-      session.send_and_read_async(
-        msg,
-        GLib.PRIORITY_DEFAULT,
-        null,
-        (_session, result) => {
-          try {
-            const bytes = session.send_and_read_finish(result);
-            resolve(bytes);
-          } catch (e) {
-            reject(e);
-          }
-        },
-      );
-    });
-
-    const statusCode = msg.get_status();
-    if (statusCode === 200) {
-      logInfo("Track liked successfully:", trackId);
-      return true;
-    } else {
-      throw new Error(`Failed to like track: ${statusCode}`);
-    }
-  } finally {
-    activeSessions.delete(session);
-  }
+  return libraryRequest("PUT", trackId);
 }
 
 export async function unlikeTrack(trackId) {
-  const accessToken = await getValidAccessToken();
-  const session = new Soup.Session();
-  activeSessions.add(session);
-
-  const url = `${API_ENDPOINT}/me/tracks?ids=${trackId}`;
-  const msg = Soup.Message.new("DELETE", url);
-  msg.get_request_headers().append("Authorization", `Bearer ${accessToken}`);
-
-  try {
-    const response = await new Promise((resolve, reject) => {
-      session.send_and_read_async(
-        msg,
-        GLib.PRIORITY_DEFAULT,
-        null,
-        (_session, result) => {
-          try {
-            const bytes = session.send_and_read_finish(result);
-            resolve(bytes);
-          } catch (e) {
-            reject(e);
-          }
-        },
-      );
-    });
-
-    const statusCode = msg.get_status();
-    if (statusCode === 200) {
-      logInfo("Track unliked successfully:", trackId);
-      return true;
-    } else {
-      throw new Error(`Failed to unlike track: ${statusCode}`);
-    }
-  } finally {
-    activeSessions.delete(session);
-  }
+  return libraryRequest("DELETE", trackId);
 }
 
 export async function toggleLike(trackId) {

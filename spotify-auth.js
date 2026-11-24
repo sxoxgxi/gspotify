@@ -15,33 +15,35 @@ let PORT = 9000;
 let REDIRECT_URI = null;
 let settings = null;
 
+let settingsSignalIds = [];
+let authGeneration = 0;
+
+export class SpotifyError extends Error {
+  constructor(code, status = null, retryAfter = null) {
+    super(`Spotify request failed: ${code}${status ? ` (HTTP ${status})` : ""}`);
+    this.code = code;
+    this.status = status;
+    this.retryAfter = retryAfter;
+  }
+}
+
 export function initializeAuth(settingsInstance) {
+  cleanupSpotifyAuth();
   settings = settingsInstance;
 
-  CLIENT_ID = settings.get_string("spotify-client-id");
-  if (!CLIENT_ID || CLIENT_ID.trim() === "") {
-    logError("Spotify client ID is empty or not set in settings");
-    CLIENT_ID = null;
-  } else {
-    CLIENT_ID = CLIENT_ID.trim();
-  }
-
-  PORT = settings.get_int("spotify-callback-port");
-  if (PORT <= 0 || PORT > 65535) {
-    logError(`Invalid port number: ${PORT}, falling back to default 9000`);
-    PORT = 9000;
-  }
-
-  REDIRECT_URI = `http://127.0.0.1:${PORT}/callback`;
-
-  settings.connect("changed::spotify-client-id", () => {
-    CLIENT_ID = settings.get_string("spotify-client-id").trim();
-  });
-
-  settings.connect("changed::spotify-callback-port", () => {
+  const updateConfiguration = () => {
+    CLIENT_ID = settings.get_string("spotify-client-id").trim() || null;
     PORT = settings.get_int("spotify-callback-port");
+    if (PORT <= 0 || PORT > 65535) PORT = 9000;
     REDIRECT_URI = `http://127.0.0.1:${PORT}/callback`;
-  });
+    tokenCache = { accessToken: null, expiresAt: null };
+    authGeneration++;
+  };
+  updateConfiguration();
+  settingsSignalIds = [
+    settings.connect("changed::spotify-client-id", updateConfiguration),
+    settings.connect("changed::spotify-callback-port", updateConfiguration),
+  ];
 }
 
 let activeSessions = new Set();
@@ -317,6 +319,7 @@ export function storeAccessToken(token, expiresIn) {
 }
 
 export function getStoredAccessToken() {
+  const generation = authGeneration;
   const schema = getAccessTokenSchema();
   return new Promise((resolve, reject) => {
     Secret.password_lookup(
@@ -326,7 +329,7 @@ export function getStoredAccessToken() {
       (source, result) => {
         try {
           const password = Secret.password_lookup_finish(result);
-          if (password) {
+          if (password && generation === authGeneration) {
             const data = JSON.parse(password);
             if (data.expiresAt && Date.now() < data.expiresAt) {
               tokenCache.accessToken = data.token;
@@ -369,6 +372,7 @@ export function clearAccessToken() {
 }
 
 export async function getValidAccessToken() {
+  const generation = authGeneration;
   if (
     tokenCache.accessToken &&
     tokenCache.expiresAt &&
@@ -378,17 +382,19 @@ export async function getValidAccessToken() {
   }
 
   const storedToken = await getStoredAccessToken();
+  if (generation !== authGeneration) throw new SpotifyError("cancelled");
   if (storedToken) {
     return storedToken;
   }
 
   const refreshToken = await getRefreshToken();
-  if (!refreshToken) {
-    logError("No refresh token found");
-  }
+  if (generation !== authGeneration) throw new SpotifyError("cancelled");
+  if (!refreshToken) throw new SpotifyError("not-authenticated");
+  if (!CLIENT_ID) throw new SpotifyError("missing-client-id");
 
   const tokenData = await getAccessTokenFromRefresh(refreshToken);
 
+  if (generation !== authGeneration) throw new SpotifyError("cancelled");
   await storeAccessToken(tokenData.access_token, tokenData.expires_in || 3600);
 
   if (tokenData.refresh_token && tokenData.refresh_token !== refreshToken) {
@@ -407,7 +413,7 @@ async function getAccessTokenFromRefresh(refreshToken) {
     "https://accounts.spotify.com/api/token",
   );
 
-  const bodyString = `grant_type=refresh_token&refresh_token=${encodeURIComponent(refreshToken)}&client_id=${CLIENT_ID}`;
+  const bodyString = `grant_type=refresh_token&refresh_token=${encodeURIComponent(refreshToken)}&client_id=${encodeURIComponent(CLIENT_ID)}`;
   const bodyBytes = new TextEncoder().encode(bodyString);
   const bytes = new GLib.Bytes(bodyBytes);
 
@@ -424,7 +430,7 @@ async function getAccessTokenFromRefresh(refreshToken) {
             const bytes = session.send_and_read_finish(result);
             resolve(bytes);
           } catch (e) {
-            reject(e);
+            reject(new SpotifyError("network"));
           }
         },
       );
@@ -434,21 +440,18 @@ async function getAccessTokenFromRefresh(refreshToken) {
     const responseText = new TextDecoder().decode(response.get_data());
 
     if (statusCode !== 200) {
-      logError(
-        `Token refresh failed with status ${statusCode}. Please reconnect your Spotify account.`,
-      );
+      const code = { 401: "unauthorized", 403: "forbidden", 429: "rate-limited" }[statusCode]
+        || (statusCode >= 500 ? "http" : "refresh-failed");
+      throw new SpotifyError(code, statusCode);
     }
-
-    if (!responseText || responseText.trim() === "") {
-      logError("Empty response from Spotify. Please reconnect your account.");
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      throw new SpotifyError("invalid-response");
     }
-
-    const data = JSON.parse(responseText);
-
-    if (data.error) {
-      logError(
-        `Spotify API error: ${data.error} - ${data.error_description || ""}`,
-      );
+    if (!data || data.error || typeof data.access_token !== "string" || !data.access_token) {
+      throw new SpotifyError("refresh-failed", statusCode);
     }
 
     return data;
@@ -457,6 +460,12 @@ async function getAccessTokenFromRefresh(refreshToken) {
   }
 }
 export function cleanupSpotifyAuth() {
+  authGeneration++;
+  for (const id of settingsSignalIds) settings.disconnect(id);
+  settingsSignalIds = [];
+  settings = null;
+  CLIENT_ID = null;
+  REDIRECT_URI = null;
   for (const session of activeSessions) {
     session.abort();
   }

@@ -15,7 +15,7 @@ import { getStatusSymbol, toggleSpotifyWindow } from "./utils.js";
 import { logInfo, logWarn, logError } from "./utils.js";
 import { destroyStatsManager } from "./stats.js";
 import { cleanupSpotify, isSpotifyLoggedIn } from "./spotify-helper.js";
-import { cleanupSpotifyAuth } from "./spotify-auth.js";
+import { initializeAuth, cleanupSpotifyAuth } from "./spotify-auth.js";
 
 const SHELL_VERSION = parseFloat(Config.PACKAGE_VERSION);
 
@@ -243,6 +243,7 @@ export default class SpotifyExtension extends Extension {
     this._minimizeTimeout = null;
 
     this._settings = this.getSettings();
+    initializeAuth(this._settings);
 
     this._settingsHandlerId = this._settings.connect(
       "changed::panel-position",
